@@ -390,7 +390,6 @@ target_sources(rpcs3_emu PRIVATE
 target_sources(rpcs3_emu PRIVATE
     RSX/gcm_enums.cpp
     RSX/gcm_printing.cpp
-    #RSX/GSRender.cpp
     RSX/RSXFIFO.cpp
     RSX/rsx_methods.cpp
     RSX/rsx_vertex_data.cpp
@@ -422,8 +421,6 @@ target_sources(rpcs3_emu PRIVATE
     RSX/Overlays/overlay_trophy_notification.cpp
     RSX/Overlays/Shaders/shader_loading_dialog.cpp
     RSX/Overlays/Shaders/shader_loading_dialog_native.cpp
-    RSX/Program/CgBinaryFragmentProgram.cpp
-    RSX/Program/CgBinaryVertexProgram.cpp
     RSX/Program/FragmentProgramDecompiler.cpp
     RSX/Program/GLSLCommon.cpp
     RSX/Program/program_util.cpp
@@ -431,22 +428,6 @@ target_sources(rpcs3_emu PRIVATE
     RSX/Program/VertexProgramDecompiler.cpp
     RSX/Capture/rsx_capture.cpp
     RSX/Capture/rsx_replay.cpp
-    #RSX/GL/GLCommonDecompiler.cpp
-    #RSX/GL/GLCompute.cpp
-    #RSX/GL/GLDraw.cpp
-    #RSX/GL/GLFragmentProgram.cpp
-    #RSX/GL/GLGSRender.cpp
-    #RSX/GL/GLHelpers.cpp
-    #RSX/GL/GLOverlays.cpp
-    #RSX/GL/GLPipelineCompiler.cpp
-    #RSX/GL/GLPresent.cpp
-    #RSX/GL/GLRenderTargets.cpp
-    #RSX/GL/GLShaderInterpreter.cpp
-    #RSX/GL/GLTexture.cpp
-    #RSX/GL/GLVertexBuffers.cpp
-    #RSX/GL/GLVertexProgram.cpp
-    #RSX/GL/GLTextureCache.cpp
-    #RSX/GL/OpenGL.cpp
 )
 
 if(TARGET 3rdparty_vulkan)
