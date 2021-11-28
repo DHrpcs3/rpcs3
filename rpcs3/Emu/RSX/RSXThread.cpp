@@ -518,9 +518,6 @@ namespace rsx
 
 		for (auto & push_buf : vertex_push_buffers)
 		{
-			//Disabled, see https://github.com/RPCS3/rpcs3/issues/1932
-			//rsx::method_registers.register_vertex_info[index].size = 0;
-
 			push_buf.clear();
 		}
 

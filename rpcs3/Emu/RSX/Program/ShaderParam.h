@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "Utilities/StrFmt.h"
 #include "Utilities/StrUtil.h"
 #include "util/types.hpp"
 
@@ -119,7 +120,7 @@ struct ParamType
 	{
 	}
 
-	bool SearchName(const std::string& name) const
+	bool SearchName(std::string_view name) const
 	{
 		return std::any_of(items.cbegin(), items.cend(), [&name](const auto& item)
 		{
@@ -132,18 +133,20 @@ struct ParamArray
 {
 	std::vector<ParamType> params[PF_PARAM_COUNT];
 
-	ParamType* SearchParam(const ParamFlag &flag, const std::string& type)
+	ParamType* SearchParam(ParamFlag flag, std::string_view type)
 	{
 		for (auto& param : params[flag])
 		{
 			if (param.type == type)
+			{
 				return &param;
+			}
 		}
 
 		return nullptr;
 	}
 
-	bool HasParamTypeless(const ParamFlag flag, const std::string& name)
+	bool HasParamTypeless(ParamFlag flag, std::string_view name)
 	{
 		const auto& p = params[flag];
 		return std::any_of(p.cbegin(), p.cend(), [&name](const auto& param)
@@ -152,44 +155,49 @@ struct ParamArray
 		});
 	}
 
-	bool HasParam(const ParamFlag flag, const std::string& type, const std::string& name)
+	bool HasParam(ParamFlag flag, std::string_view type, std::string_view name)
 	{
 		ParamType* t = SearchParam(flag, type);
-		return t && t->SearchName(name);
+		return t != nullptr && t->SearchName(name);
 	}
 
-	std::string AddParam(const ParamFlag flag, const std::string& type, const std::string& name, const std::string& value)
+	std::string AddParam(ParamFlag flag, std::string_view type, std::string_view name, std::string value)
 	{
 		ParamType* t = SearchParam(flag, type);
 
-		if (t)
+		if (t != nullptr)
 		{
-			if (!t->SearchName(name)) t->items.emplace_back(name, -1, value);
+			if (!t->SearchName(name))
+			{
+				t->items.emplace_back(std::string(name), -1, std::move(value));
+			}
 		}
 		else
 		{
-			params[flag].emplace_back(flag, type);
-			params[flag].back().items.emplace_back(name, -1, value);
+			params[flag].emplace_back(flag, std::string(type)).items.emplace_back(std::string(name), -1, std::move(value));
 		}
 
-		return name;
+		return std::string(name);
 	}
 
-	std::string AddParam(const ParamFlag flag, const std::string& type, const std::string& name, int location = -1)
+	std::string AddParam(ParamFlag flag, std::string_view type, std::string_view name, int location = -1)
 	{
 		ParamType* t = SearchParam(flag, type);
 
-		if (t)
+		if (t != nullptr)
 		{
-			if (!t->SearchName(name)) t->items.emplace_back(name, location);
+			if (!t->SearchName(name))
+			{
+				t->items.emplace_back(std::string(name), location);
+			}
 		}
 		else
 		{
-			params[flag].emplace_back(flag, type);
-			params[flag].back().items.emplace_back(name, location);
+			params[flag].emplace_back(flag, std::string(type));
+			params[flag].back().items.emplace_back(std::string(name), location);
 		}
 
-		return name;
+		return std::string(name);
 	}
 };
 

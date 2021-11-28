@@ -1,5 +1,9 @@
 #pragma once
 #include "../Program/GLSLTypes.h"
+#include "util/types.hpp"
+#include <string_view>
+#include <string>
+#include <vector>
 
 namespace vk
 {

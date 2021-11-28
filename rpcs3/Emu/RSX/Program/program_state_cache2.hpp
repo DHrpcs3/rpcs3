@@ -4,6 +4,8 @@
 
 #include "emmintrin.h"
 #include "util/asm.hpp"
+#include "util/endian.hpp"
+#include <bit>
 
 template <typename Traits>
 void program_state_cache<Traits>::fill_fragment_constants_buffer(std::span<f32> dst_buffer, const RSXFragmentProgram &fragment_program, bool sanitize) const

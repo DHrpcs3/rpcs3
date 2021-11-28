@@ -1,6 +1,8 @@
 #pragma once
 #include "ShaderParam.h"
 #include "RSXFragmentProgram.h"
+#include "util/endian.hpp"
+#include <bit>
 #include <sstream>
 
 // Helper for GPR occupancy tracking
@@ -138,10 +140,7 @@ class FragmentProgramDecompiler
 		op_extern = src_cast_f32 | skip_type_cast,
 	};
 
-	OPDEST dst;
-	SRC0 src0;
-	SRC1 src1;
-	SRC2 src2;
+	rsx::fp_instruction m_inst;
 	u32  opflags;
 
 	std::string main;
@@ -186,10 +185,12 @@ class FragmentProgramDecompiler
 	void AddCodeCond(const std::string& lhs, const std::string& rhs);
 	std::string GetRawCond();
 	std::string GetCond();
-	template<typename T> std::string GetSRC(T src);
+	std::string GetSRC(std::size_t index);
 	std::string BuildCode();
 
-	static u32 GetData(const u32 d) { return d << 16 | d >> 16; }
+	static u32 GetData(const u32 d) {
+		return std::bit_cast<be_t<u32>>(d << 16 | d >> 16); 
+	}
 
 	/**
 	 * Emits code if opcode is an SCT/SCB one and returns true,
@@ -276,26 +277,26 @@ public:
 		u16 shadow_sampler_mask = 0;
 		u16 redirected_sampler_mask = 0;
 
-		bool has_lit_op = false;
-		bool has_gather_op = false;
-		bool has_no_output = false;
-		bool has_discard_op = false;
-		bool has_tex_op = false;
-		bool has_divsq = false;
-		bool has_clamp = false;
-		bool has_w_access = false;
-		bool has_exp_tex_op = false;
-		bool has_pkg = false;
-		bool has_upg = false;
-		bool has_dynamic_register_load = false;
+		bool has_lit_op : 1 = false;
+		bool has_gather_op : 1 = false;
+		bool has_no_output : 1 = false;
+		bool has_discard_op : 1 = false;
+		bool has_tex_op : 1 = false;
+		bool has_divsq : 1 = false;
+		bool has_clamp : 1 = false;
+		bool has_w_access : 1 = false;
+		bool has_exp_tex_op : 1 = false;
+		bool has_pkg : 1 = false;
+		bool has_upg : 1 = false;
+		bool has_dynamic_register_load : 1 = false;
 	}
 	properties;
 
 	struct
 	{
-		bool has_native_half_support = false;
-		bool emulate_depth_compare = false;
-		bool has_low_precision_rounding = false;
+		bool has_native_half_support : 1 = false;
+		bool emulate_depth_compare : 1 = false;
+		bool has_low_precision_rounding : 1 = false;
 	}
 	device_props;
 

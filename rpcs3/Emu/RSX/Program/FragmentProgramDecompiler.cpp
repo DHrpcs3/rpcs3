@@ -9,7 +9,7 @@ namespace rsx
 {
 	namespace fragment_program
 	{
-		static const std::string reg_table[] =
+		static const std::string_view reg_table[] =
 		{
 			"wpos",
 			"diff_color", "spec_color",
@@ -32,12 +32,15 @@ FragmentProgramDecompiler::FragmentProgramDecompiler(const RSXFragmentProgram &p
 
 void FragmentProgramDecompiler::SetDst(std::string code, u32 flags)
 {
-	if (!src0.exec_if_eq && !src0.exec_if_gr && !src0.exec_if_lt) return;
+	if (m_inst.src0.exec_cond() == rsx::fp_cond::never) {
+		return;
+	}
 
-	if (src1.scale)
+
+	if (auto scale = m_inst.src1.scale())
 	{
 		std::string modifier;
-		switch (src1.scale)
+		switch (scale)
 		{
 		case 0: break;
 		case 1: code = "(" + code + " * "; modifier = "2."; break;
@@ -48,11 +51,11 @@ void FragmentProgramDecompiler::SetDst(std::string code, u32 flags)
 		case 7: code = "(" + code + " / "; modifier = "8."; break;
 
 		default:
-			rsx_log.error("Bad scale: %d", u32{ src1.scale });
+			rsx_log.error("Bad scale: %d", u32{ scale });
 			break;
 		}
 
-		if (flags & OPFLAGS::skip_type_cast && dst.fp16 && device_props.has_native_half_support)
+		if (flags & OPFLAGS::skip_type_cast && m_inst.dest.fp16() && device_props.has_native_half_support)
 		{
 			modifier = getHalfTypeName(1) + "(" + modifier + ")";
 		}
@@ -63,21 +66,21 @@ void FragmentProgramDecompiler::SetDst(std::string code, u32 flags)
 		}
 	}
 
-	if (!dst.no_dest)
+	if (!m_inst.dest.no_dest())
 	{
-		if (dst.fp16 && device_props.has_native_half_support && !(flags & OPFLAGS::skip_type_cast))
+		if (m_inst.dest.fp16() && device_props.has_native_half_support && !(flags & OPFLAGS::skip_type_cast))
 		{
 			// Cast to native data type
 			code = ClampValue(code, 1);
 		}
 
-		if (dst.saturate)
+		if (m_inst.dest.saturate())
 		{
 			code = ClampValue(code, 4);
 		}
-		else if (dst.prec)
+		else if (m_inst.dest.prec())
 		{
-			switch (dst.opcode)
+			switch (m_inst.dest.opcode())
 			{
 			case RSX_FP_OPCODE_NRM:
 			case RSX_FP_OPCODE_MAX:
@@ -92,21 +95,21 @@ void FragmentProgramDecompiler::SetDst(std::string code, u32 flags)
 				break;
 			case RSX_FP_OPCODE_MOV:
 				// NOTE: Sometimes varying inputs from VS are out of range so do not exempt any input types, unless fp16 (Naruto UNS)
-				if (dst.fp16 && src0.fp16 && src0.reg_type == RSX_FP_REGISTER_TYPE_TEMP)
+				if (m_inst.dest.fp16() && m_inst.src0.fp16() && m_inst.src0.reg_type() == RSX_FP_REGISTER_TYPE_TEMP)
 					break;
 				[[fallthrough]];
 			default:
 			{
 				// fp16 precsion flag on f32 register; ignore
-				if (dst.prec == 1 && !dst.fp16)
+				if (m_inst.dest.prec() == 1 && !m_inst.dest.fp16())
 					break;
 
 				// Native type already has fp16 clamped (input must have been cast)
-				if (dst.prec == 1 && dst.fp16 && device_props.has_native_half_support)
+				if (m_inst.dest.prec() == 1 && m_inst.dest.fp16() && device_props.has_native_half_support)
 					break;
 
 				// clamp value to allowed range
-				code = ClampValue(code, dst.prec);
+				code = ClampValue(code, m_inst.dest.prec());
 				break;
 			}
 			}
@@ -116,11 +119,11 @@ void FragmentProgramDecompiler::SetDst(std::string code, u32 flags)
 	opflags = flags;
 	code += (flags & OPFLAGS::no_src_mask) ? "" : "$m";
 
-	if (dst.no_dest)
+	if (m_inst.dest.no_dest())
 	{
-		if (dst.set_cond)
+		if (m_inst.dest.set_cond())
 		{
-			AddCode("$ifcond " + m_parr.AddParam(PF_PARAM_NONE, getFloatTypeName(4), "cc" + std::to_string(src0.cond_mod_reg_index)) + "$m = " + code + ";");
+			AddCode("$ifcond " + m_parr.AddParam(PF_PARAM_NONE, getFloatTypeName(4), "cc" + std::to_string(m_inst.src0.cond_mod_reg_index())) + "$m = " + code + ";");
 		}
 		else
 		{
@@ -130,24 +133,24 @@ void FragmentProgramDecompiler::SetDst(std::string code, u32 flags)
 		return;
 	}
 
-	const std::string dest = AddReg(dst.dest_reg, !!dst.fp16) + "$m";
+	const std::string dest = AddReg(m_inst.dest.dest_reg(), !!m_inst.dest.fp16()) + "$m";
 	const std::string decoded_dest = Format(dest);
 
 	AddCodeCond(decoded_dest, code);
 	//AddCode("$ifcond " + dest + code + (append_mask ? "$m;" : ";"));
 
-	if (dst.set_cond)
+	if (m_inst.dest.set_cond())
 	{
-		AddCode(m_parr.AddParam(PF_PARAM_NONE, getFloatTypeName(4), "cc" + std::to_string(src0.cond_mod_reg_index)) + "$m = " + dest + ";");
+		AddCode(m_parr.AddParam(PF_PARAM_NONE, getFloatTypeName(4), "cc" + std::to_string(m_inst.src0.cond_mod_reg_index())) + "$m = " + dest + ";");
 	}
 
-	u32 reg_index = dst.fp16 ? dst.dest_reg >> 1 : dst.dest_reg;
+	u32 reg_index = m_inst.dest.fp16() ? m_inst.dest.dest_reg() >> 1 : m_inst.dest.dest_reg();
 
 	ensure(reg_index < temp_registers.size());
 
-	if (dst.opcode == RSX_FP_OPCODE_MOV &&
-		src0.reg_type == RSX_FP_REGISTER_TYPE_TEMP &&
-		src0.tmp_reg_index == reg_index)
+	if (m_inst.dest.opcode() == RSX_FP_OPCODE_MOV &&
+		m_inst.src0.reg_type() == RSX_FP_REGISTER_TYPE_TEMP &&
+		m_inst.src0.tmp_reg_index() == reg_index)
 	{
 		// The register did not acquire any new data
 		// Common in code with structures like r0.xy = r0.xy
@@ -158,19 +161,19 @@ void FragmentProgramDecompiler::SetDst(std::string code, u32 flags)
 		}
 	}
 
-	temp_registers[reg_index].tag(dst.dest_reg, !!dst.fp16, dst.mask_x, dst.mask_y, dst.mask_z, dst.mask_w);
+	temp_registers[reg_index].tag(m_inst.dest.dest_reg(), !!m_inst.dest.fp16(), m_inst.dest.mask_x(), m_inst.dest.mask_y(), m_inst.dest.mask_z(), m_inst.dest.mask_w());
 }
 
 void FragmentProgramDecompiler::AddFlowOp(const std::string& code)
 {
 	//Flow operations can only consider conditionals and have no dst
 
-	if (src0.exec_if_gr && src0.exec_if_lt && src0.exec_if_eq)
+	if (m_inst.src0.exec_cond() == rsx::fp_cond::always)
 	{
 		AddCode(code + ";");
 		return;
 	}
-	else if (!src0.exec_if_gr && !src0.exec_if_lt && !src0.exec_if_eq)
+	else if (m_inst.src0.exec_cond() == rsx::fp_cond::never)
 	{
 		AddCode("//" + code + ";");
 		return;
@@ -195,10 +198,10 @@ std::string FragmentProgramDecompiler::GetMask() const
 	static constexpr std::string_view dst_mask = "xyzw";
 
 	ret += '.';
-	if (dst.mask_x) ret += dst_mask[0];
-	if (dst.mask_y) ret += dst_mask[1];
-	if (dst.mask_z) ret += dst_mask[2];
-	if (dst.mask_w) ret += dst_mask[3];
+	if (m_inst.dest.mask_x()) ret += dst_mask[0];
+	if (m_inst.dest.mask_y()) ret += dst_mask[1];
+	if (m_inst.dest.mask_z()) ret += dst_mask[2];
+	if (m_inst.dest.mask_w()) ret += dst_mask[3];
 
 	return ret == "."sv || ret == ".xyzw"sv ? "" : (ret);
 }
@@ -221,7 +224,7 @@ bool FragmentProgramDecompiler::HasReg(u32 index, bool fp16)
 
 std::string FragmentProgramDecompiler::AddCond()
 {
-	return m_parr.AddParam(PF_PARAM_NONE, getFloatTypeName(4), "cc" + std::to_string(src0.cond_reg_index));
+	return m_parr.AddParam(PF_PARAM_NONE, getFloatTypeName(4), "cc" + std::to_string(m_inst.src0.cond_reg_index()));
 }
 
 std::string FragmentProgramDecompiler::AddConst()
@@ -234,7 +237,7 @@ std::string FragmentProgramDecompiler::AddConst()
 		return name;
 	}
 
-	auto data = reinterpret_cast<be_t<u32>*>(reinterpret_cast<uptr>(m_prog.get_data()) + m_size + 4 * sizeof(u32));
+	auto data = reinterpret_cast<u32 *>(reinterpret_cast<uptr>(m_prog.get_data()) + m_size + 4 * sizeof(u32));
 	m_offset = 2 * 4 * sizeof(u32);
 	u32 x = GetData(data[0]);
 	u32 y = GetData(data[1]);
@@ -250,7 +253,7 @@ std::string FragmentProgramDecompiler::AddTex()
 	properties.has_tex_op = true;
 
 	std::string sampler;
-	switch (m_prog.get_texture_dimension(dst.tex_num))
+	switch (m_prog.get_texture_dimension(m_inst.dest.tex_num()))
 	{
 	case rsx::texture_dimension_extended::texture_dimension_1d:
 		sampler = "sampler1D";
@@ -267,7 +270,7 @@ std::string FragmentProgramDecompiler::AddTex()
 	}
 
 	opflags |= OPFLAGS::texture_ref;
-	return m_parr.AddParam(PF_PARAM_UNIFORM, sampler, std::string("tex") + std::to_string(dst.tex_num));
+	return m_parr.AddParam(PF_PARAM_UNIFORM, sampler, std::string("tex") + std::to_string(m_inst.dest.tex_num()));
 }
 
 std::string FragmentProgramDecompiler::AddType3()
@@ -320,10 +323,10 @@ bool FragmentProgramDecompiler::DstExpectsSca() const
 {
 	int writes = 0;
 
-	if (dst.mask_x) writes++;
-	if (dst.mask_y) writes++;
-	if (dst.mask_z) writes++;
-	if (dst.mask_w) writes++;
+	if (m_inst.dest.mask_x()) writes++;
+	if (m_inst.dest.mask_y()) writes++;
+	if (m_inst.dest.mask_z()) writes++;
+	if (m_inst.dest.mask_w()) writes++;
 
 	return (writes == 1);
 }
@@ -333,11 +336,11 @@ std::string FragmentProgramDecompiler::Format(const std::string& code, bool igno
 	const std::pair<std::string_view, std::function<std::string()>> repl_list[] =
 	{
 		{ "$$", []() -> std::string { return "$"; } },
-		{ "$0", [this]() -> std::string {return GetSRC<SRC0>(src0);} },
-		{ "$1", [this]() -> std::string {return GetSRC<SRC1>(src1);} },
-		{ "$2", [this]() -> std::string {return GetSRC<SRC2>(src2);} },
-		{ "$t", [this]() -> std::string { return "tex" + std::to_string(dst.tex_num);} },
-		{ "$_i", [this]() -> std::string {return std::to_string(dst.tex_num);} },
+		{ "$0", [this]() -> std::string {return GetSRC(0);} },
+		{ "$1", [this]() -> std::string {return GetSRC(1);} },
+		{ "$2", [this]() -> std::string {return GetSRC(2);} },
+		{ "$t", [this]() -> std::string { return "tex" + std::to_string(m_inst.dest.tex_num());} },
+		{ "$_i", [this]() -> std::string {return std::to_string(m_inst.dest.tex_num());} },
 		{ "$m", std::bind(std::mem_fn(&FragmentProgramDecompiler::GetMask), this) },
 		{ "$ifcond ", [this]() -> std::string
 			{
@@ -356,13 +359,13 @@ std::string FragmentProgramDecompiler::Format(const std::string& code, bool igno
 		{ "$half3", [this]() -> std::string { return getHalfTypeName(3); } },
 		{ "$half2", [this]() -> std::string { return getHalfTypeName(2); } },
 		{ "$half_t", [this]() -> std::string { return getHalfTypeName(1); } },
-		{ "$Ty", [this]() -> std::string { return (!device_props.has_native_half_support || !dst.fp16)? getFloatTypeName(4) : getHalfTypeName(4); } }
+		{ "$Ty", [this]() -> std::string { return (!device_props.has_native_half_support || !m_inst.dest.fp16())? getFloatTypeName(4) : getHalfTypeName(4); } }
 	};
 
 	if (!ignore_redirects)
 	{
 		//Special processing redirects
-		switch (dst.opcode)
+		switch (m_inst.dest.opcode())
 		{
 		case RSX_FP_OPCODE_TEXBEM:
 		case RSX_FP_OPCODE_TXPBEM:
@@ -374,6 +377,9 @@ std::string FragmentProgramDecompiler::Format(const std::string& code, bool igno
 
 			return fmt::replace_all(result, repl_list);
 		}
+
+		default:
+			break;
 		}
 	}
 
@@ -388,39 +394,40 @@ std::string FragmentProgramDecompiler::GetRawCond()
 	std::string swizzle, cond;
 	swizzle.reserve(5);
 	swizzle += '.';
-	swizzle += f[src0.cond_swizzle_x];
-	swizzle += f[src0.cond_swizzle_y];
-	swizzle += f[src0.cond_swizzle_z];
-	swizzle += f[src0.cond_swizzle_w];
+	swizzle += f[m_inst.src0.cond_swizzle_x()];
+	swizzle += f[m_inst.src0.cond_swizzle_y()];
+	swizzle += f[m_inst.src0.cond_swizzle_z()];
+	swizzle += f[m_inst.src0.cond_swizzle_w()];
 
 	if (swizzle == ".xyzw"sv)
 	{
 		swizzle.clear();
 	}
 
-	if (src0.exec_if_gr && src0.exec_if_eq)
-		cond = compareFunction(COMPARE::SGE, AddCond() + swizzle, zero);
-	else if (src0.exec_if_lt && src0.exec_if_eq)
-		cond = compareFunction(COMPARE::SLE, AddCond() + swizzle, zero);
-	else if (src0.exec_if_gr && src0.exec_if_lt)
-		cond = compareFunction(COMPARE::SNE, AddCond() + swizzle, zero);
-	else if (src0.exec_if_gr)
-		cond = compareFunction(COMPARE::SGT, AddCond() + swizzle, zero);
-	else if (src0.exec_if_lt)
-		cond = compareFunction(COMPARE::SLT, AddCond() + swizzle, zero);
-	else //if(src0.exec_if_eq)
-		cond = compareFunction(COMPARE::SEQ, AddCond() + swizzle, zero);
+	COMPARE compareOp = COMPARE::SEQ;
 
-	return cond;
+	switch (m_inst.src0.exec_cond()) {
+	case rsx::fp_cond::lt: compareOp = COMPARE::SLT; break; 
+	case rsx::fp_cond::eq: compareOp = COMPARE::SEQ; break; 
+	case rsx::fp_cond::gt: compareOp = COMPARE::SGT; break; 
+	case rsx::fp_cond::le: compareOp = COMPARE::SLE; break; 
+	case rsx::fp_cond::ge: compareOp = COMPARE::SGE; break; 
+	case rsx::fp_cond::ne: compareOp = COMPARE::SNE; break;
+
+	default:
+		break;
+	}
+
+	return compareFunction(compareOp, AddCond() + swizzle, zero);;
 }
 
 std::string FragmentProgramDecompiler::GetCond()
 {
-	if (src0.exec_if_gr && src0.exec_if_lt && src0.exec_if_eq)
+	if (m_inst.src0.exec_cond() == rsx::fp_cond::always)
 	{
 		return "true";
 	}
-	else if (!src0.exec_if_gr && !src0.exec_if_lt && !src0.exec_if_eq)
+	else if (m_inst.src0.exec_cond() == rsx::fp_cond::never)
 	{
 		return "false";
 	}
@@ -430,20 +437,20 @@ std::string FragmentProgramDecompiler::GetCond()
 
 void FragmentProgramDecompiler::AddCodeCond(const std::string& lhs, const std::string& rhs)
 {
-	if (src0.exec_if_gr && src0.exec_if_lt && src0.exec_if_eq)
+	if (m_inst.src0.exec_cond() == rsx::fp_cond::always)
 	{
 		AddCode(lhs + " = " + rhs + ";");
 		return;
 	}
 
-	if (!src0.exec_if_gr && !src0.exec_if_lt && !src0.exec_if_eq)
+	if (m_inst.src0.exec_cond() == rsx::fp_cond::never)
 	{
 		AddCode("//" + lhs + " = " + rhs + ";");
 		return;
 	}
 
 	std::string src_prefix;
-	if (device_props.has_native_half_support && !this->dst.fp16)
+	if (device_props.has_native_half_support && !this->m_inst.dest.fp16())
 	{
 		// Target is not fp16 but src might be
 		// Usually vecX a = f16vecX b is fine, but causes operator overload issues when used in a mix/lerp function
@@ -455,17 +462,17 @@ void FragmentProgramDecompiler::AddCodeCond(const std::string& lhs, const std::s
 			rhs.find("$0") != umax)
 		{
 			// Texture sample operations are full-width and are exempt
-			src_is_fp16 = (src0.fp16 && src0.reg_type == RSX_FP_REGISTER_TYPE_TEMP);
+			src_is_fp16 = (m_inst.src0.fp16() && m_inst.src0.reg_type() == RSX_FP_REGISTER_TYPE_TEMP);
 
 			if (src_is_fp16 && rhs.find("$1") != umax)
 			{
 				// References operand 1
-				src_is_fp16 = (src1.fp16 && src1.reg_type == RSX_FP_REGISTER_TYPE_TEMP);
+				src_is_fp16 = (m_inst.src1.fp16() && m_inst.src1.reg_type() == RSX_FP_REGISTER_TYPE_TEMP);
 
 				if (src_is_fp16 && rhs.find("$2") != umax)
 				{
 					// References operand 2
-					src_is_fp16 = (src2.fp16 && src2.reg_type == RSX_FP_REGISTER_TYPE_TEMP);
+					src_is_fp16 = (m_inst.src2.fp16() && m_inst.src2.reg_type() == RSX_FP_REGISTER_TYPE_TEMP);
 				}
 			}
 		}
@@ -493,41 +500,30 @@ void FragmentProgramDecompiler::AddCodeCond(const std::string& lhs, const std::s
 	AddCode(lhs + " = _select(" + lhs + ", " + src_prefix + rhs + ", " + cond + ");");
 }
 
-template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
+std::string FragmentProgramDecompiler::GetSRC(std::size_t index)
 {
 	std::string ret;
-	u32 precision_modifier = 0;
 
-	if constexpr (std::is_same<T, SRC0>::value)
-	{
-		precision_modifier = src1.src0_prec_mod;
-	}
-	else if constexpr (std::is_same<T, SRC1>::value)
-	{
-		precision_modifier = src1.src1_prec_mod;
-	}
-	else if constexpr (std::is_same<T, SRC2>::value)
-	{
-		precision_modifier = src1.src2_prec_mod;
-	}
+	auto src = m_inst.src(index);
+	u32 precision_modifier = m_inst.src_precision_modifier(index);
 
-	switch (src.reg_type)
+	switch (src.reg_type())
 	{
 	case RSX_FP_REGISTER_TYPE_TEMP:
 
-		if (!src.fp16)
+		if (!src.fp16())
 		{
-			if (dst.opcode == RSX_FP_OPCODE_UP16 ||
-				dst.opcode == RSX_FP_OPCODE_UP2 ||
-				dst.opcode == RSX_FP_OPCODE_UP4 ||
-				dst.opcode == RSX_FP_OPCODE_UPB ||
-				dst.opcode == RSX_FP_OPCODE_UPG)
+			if (m_inst.dest.opcode() == RSX_FP_OPCODE_UP16 ||
+				m_inst.dest.opcode() == RSX_FP_OPCODE_UP2 ||
+				m_inst.dest.opcode() == RSX_FP_OPCODE_UP4 ||
+				m_inst.dest.opcode() == RSX_FP_OPCODE_UPB ||
+				m_inst.dest.opcode() == RSX_FP_OPCODE_UPG)
 			{
-				auto &reg = temp_registers[src.tmp_reg_index];
-				if (reg.requires_gather(src.swizzle_x))
+				auto &reg = temp_registers[src.tmp_reg_index()];
+				if (reg.requires_gather(src.swizzle_x()))
 				{
 					properties.has_gather_op = true;
-					AddReg(src.tmp_reg_index, src.fp16);
+					AddReg(src.tmp_reg_index(), src.fp16());
 					ret = getFloatTypeName(4) + reg.gather_r();
 					break;
 				}
@@ -539,9 +535,9 @@ template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
 			precision_modifier = RSX_FP_PRECISION_REAL;
 		}
 
-		ret += AddReg(src.tmp_reg_index, src.fp16);
+		ret += AddReg(src.tmp_reg_index(), src.fp16());
 
-		if (opflags & OPFLAGS::src_cast_f32 && src.fp16 && device_props.has_native_half_support)
+		if (opflags & OPFLAGS::src_cast_f32 && src.fp16() && device_props.has_native_half_support)
 		{
 			// Upconvert if there is a chance for ambiguity
 			ret = getFloatTypeName(4) + "(" + ret + ")";
@@ -558,11 +554,11 @@ template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
 		// 4. [A0 + N] addressing can be applied to dynamically sample texture coordinates.
 		// - This is explained in NV_fragment_program2 specification page, Fragment Attributes section.
 		// - There is no instruction that writes to the address register directly, it is supposed to be the loop counter!
-		u32 register_id = src2.use_index_reg ? (src2.addr_reg + 4) : dst.src_attr_reg_num;
-		const std::string reg_var = (register_id < std::size(reg_table))? reg_table[register_id] : "unk";
+		u32 register_id = m_inst.src2.use_index_reg() ? (m_inst.src2.addr_reg() + 4) : m_inst.dest.src_attr_reg_num();
+		const std::string_view reg_var = (register_id < std::size(reg_table))? reg_table[register_id] : "unk";
 		bool insert = true;
 
-		if (src2.use_index_reg && m_loop_count)
+		if (m_inst.src2.use_index_reg() && m_loop_count)
 		{
 			// Dynamically load the input
 			register_id = 0xFF;
@@ -581,7 +577,9 @@ template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
 		case 0x02:
 		{
 			// COL0, COL1
-			ret += "_saturate(" + reg_var + ")";
+			ret += "_saturate(";
+			ret += reg_var;
+			ret += ')';
 			precision_modifier = RSX_FP_PRECISION_REAL;
 			break;
 		}
@@ -618,23 +616,31 @@ template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
 					ret += getFloatTypeName(4) + "(gl_PointCoord, 1., 0.)";
 				}
 			}
-			else if (src2.perspective_corr)
+			else if (m_inst.src2.perspective_corr())
 			{
 				// Perspective correct flag multiplies the result by 1/w
 				if (m_prog.texcoord_is_2d(texcoord))
 				{
-					ret += getFloatTypeName(4) + "(" + reg_var + ".xy * gl_FragCoord.w, 0., 1.)";
+					ret += getFloatTypeName(4);
+					ret += '(';
+					ret += reg_var;
+					ret += ".xy * gl_FragCoord.w, 0., 1.)";
 				}
 				else
 				{
-					ret += "(" + reg_var + " * gl_FragCoord.w)";
+					ret += "(";
+					ret += reg_var;
+					ret += " * gl_FragCoord.w)";
 				}
 			}
 			else
 			{
 				if (m_prog.texcoord_is_2d(texcoord))
 				{
-					ret += getFloatTypeName(4) + "(" + reg_var + ".xy, 0., in_w)";
+					ret += getFloatTypeName(4);
+					ret += '(';
+					ret += reg_var;
+					ret += ".xy, 0., in_w)";
 					properties.has_w_access = true;
 				}
 				else
@@ -658,11 +664,11 @@ template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
 				rsx_log.error("Indexed load with control override mask detected. Report this to developers!");
 			}
 
-			const auto load_cmd = fmt::format("_indexed_load(i%u + %u)", m_loop_count - 1, src2.addr_reg);
+			const auto load_cmd = fmt::format("_indexed_load(i%u + %u)", m_loop_count - 1, m_inst.src2.addr_reg());
 			properties.has_dynamic_register_load = true;
 			insert = false;
 
-			if (src2.perspective_corr)
+			if (m_inst.src2.perspective_corr())
 			{
 				ret += "(" + load_cmd + " * gl_FragCoord.w)";
 			}
@@ -702,14 +708,14 @@ template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
 
 	case RSX_FP_REGISTER_TYPE_UNKNOWN: // ??? Used by a few games, what is it?
 		rsx_log.error("Src type 3 used, opcode=0x%X, dst=0x%X s0=0x%X s1=0x%X s2=0x%X",
-				dst.opcode, dst.HEX, src0.HEX, src1.HEX, src2.HEX);
+				static_cast<u32>(m_inst.dest.opcode()), m_inst.dest.hex, m_inst.src0.hex, m_inst.src1.hex, m_inst.src2.hex);
 
 		ret += AddType3();
 		precision_modifier = RSX_FP_PRECISION_REAL;
 		break;
 
 	default:
-		rsx_log.fatal("Bad src type %d", u32{ src.reg_type });
+		rsx_log.fatal("Bad src type %d", u32{ src.reg_type() });
 		break;
 	}
 
@@ -718,10 +724,10 @@ template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
 	std::string swizzle;
 	swizzle.reserve(5);
 	swizzle += '.';
-	swizzle += f[src.swizzle_x];
-	swizzle += f[src.swizzle_y];
-	swizzle += f[src.swizzle_z];
-	swizzle += f[src.swizzle_w];
+	swizzle += f[src.swizzle_x()];
+	swizzle += f[src.swizzle_y()];
+	swizzle += f[src.swizzle_z()];
+	swizzle += f[src.swizzle_w()];
 
 	if (swizzle != ".xyzw"sv)
 	{
@@ -729,9 +735,9 @@ template<typename T> std::string FragmentProgramDecompiler::GetSRC(T src)
 	}
 
 	// Warning: Modifier order matters. e.g neg should be applied after precision clamping (tested with Naruto UNS)
-	if (src.abs) ret = "abs(" + ret + ")";
+	if (m_inst.src_abs(index)) ret = "abs(" + ret + ")";
 	if (precision_modifier) ret = ClampValue(ret, precision_modifier);
-	if (src.neg) ret = "-" + ret;
+	if (src.neg()) ret = "-" + ret;
 
 	return ret;
 }
@@ -1076,8 +1082,8 @@ bool FragmentProgramDecompiler::handle_tex_srb(u32 opcode)
 {
 	auto insert_texture_fetch = [this](FUNCTION base_func)
 	{
-		const auto type = m_prog.get_texture_dimension(dst.tex_num);
-		const auto ref_mask = (1 << dst.tex_num);
+		const auto type = m_prog.get_texture_dimension(m_inst.dest.tex_num());
+		const auto ref_mask = (1 << m_inst.dest.tex_num());
 		std::string swz_mask = "";
 
 		auto func_id = base_func;
@@ -1112,7 +1118,7 @@ bool FragmentProgramDecompiler::handle_tex_srb(u32 opcode)
 		const auto type_offset = (std::min(static_cast<int>(type), 2) + 1) * static_cast<int>(FUNCTION::TEXTURE_SAMPLE_BASE_ENUM_COUNT);
 		func_id = static_cast<FUNCTION>(static_cast<int>(func_id) + type_offset);
 
-		if (dst.exp_tex)
+		if (m_inst.dest.exp_tex())
 		{
 			properties.has_exp_tex_op = true;
 			AddCode("_enable_texture_expand();");
@@ -1120,7 +1126,7 @@ bool FragmentProgramDecompiler::handle_tex_srb(u32 opcode)
 
 		SetDst(getFunction(func_id) + swz_mask);
 
-		if (dst.exp_tex)
+		if (m_inst.dest.exp_tex())
 		{
 			// Cleanup
 			AddCode("_disable_texture_expand();");
@@ -1198,7 +1204,7 @@ bool FragmentProgramDecompiler::handle_tex_srb(u32 opcode)
 
 std::string FragmentProgramDecompiler::Decompile()
 {
-	auto data = static_cast<be_t<u32>*>(m_prog.get_data());
+	auto data = static_cast<u32 *>(m_prog.get_data());
 	m_size = 0;
 	m_location = 0;
 	m_loop_count = 0;
@@ -1237,15 +1243,12 @@ std::string FragmentProgramDecompiler::Decompile()
 			m_code_level++;
 		}
 
-		dst.HEX = GetData(data[0]);
-		src0.HEX = GetData(data[1]);
-		src1.HEX = GetData(data[2]);
-		src2.HEX = GetData(data[3]);
+		std::memcpy(&m_inst, data, sizeof(m_inst));
 
 		m_offset = 4 * sizeof(u32);
 		opflags = 0;
 
-		const u32 opcode = dst.opcode | (src1.opcode_is_branch << 6);
+		const u32 opcode = m_inst.dest.opcode() | (m_inst.src1.opcode_is_branch() << 6);
 
 		auto SIP = [&]()
 		{
@@ -1268,40 +1271,40 @@ std::string FragmentProgramDecompiler::Decompile()
 				break;
 			case RSX_FP_OPCODE_IFE:
 				AddCode("if($cond)");
-				if (src2.end_offset != src1.else_offset)
-					m_else_offsets.push_back(src1.else_offset << 2);
-				m_end_offsets.push_back(src2.end_offset << 2);
+				if (m_inst.src2.end_offset() != m_inst.src1.else_offset())
+					m_else_offsets.push_back(m_inst.src1.else_offset() << 2);
+				m_end_offsets.push_back(m_inst.src2.end_offset() << 2);
 				AddCode("{");
 				m_code_level++;
 				break;
 			case RSX_FP_OPCODE_LOOP:
-				if (!src0.exec_if_eq && !src0.exec_if_gr && !src0.exec_if_lt)
+				if (m_inst.src0.exec_cond() == rsx::fp_cond::never)
 				{
 					AddCode(fmt::format("//$ifcond for(int i%u = %u; i%u < %u; i%u += %u) {} //-> %u //LOOP",
-						m_loop_count, src1.init_counter, m_loop_count, src1.end_counter, m_loop_count, src1.increment, src2.end_offset));
+						m_loop_count, m_inst.src1.init_counter(), m_loop_count, m_inst.src1.end_counter(), m_loop_count, m_inst.src1.increment(), m_inst.src2.end_offset()));
 				}
 				else
 				{
 					AddCode(fmt::format("$ifcond for(int i%u = %u; i%u < %u; i%u += %u) //LOOP",
-						m_loop_count, src1.init_counter, m_loop_count, src1.end_counter, m_loop_count, src1.increment));
+						m_loop_count, m_inst.src1.init_counter(), m_loop_count, m_inst.src1.end_counter(), m_loop_count, m_inst.src1.increment()));
 					m_loop_count++;
-					m_end_offsets.push_back(src2.end_offset << 2);
+					m_end_offsets.push_back(m_inst.src2.end_offset());
 					AddCode("{");
 					m_code_level++;
 				}
 				break;
 			case RSX_FP_OPCODE_REP:
-				if (!src0.exec_if_eq && !src0.exec_if_gr && !src0.exec_if_lt)
+				if (m_inst.src0.exec_cond() == rsx::fp_cond::never)
 				{
 					AddCode(fmt::format("//$ifcond for(int i%u = %u; i%u < %u; i%u += %u) {} //-> %u //REP",
-						m_loop_count, src1.init_counter, m_loop_count, src1.end_counter, m_loop_count, src1.increment, src2.end_offset));
+						m_loop_count, m_inst.src1.init_counter(), m_loop_count, m_inst.src1.end_counter(), m_loop_count, m_inst.src1.increment(), m_inst.src2.end_offset()));
 				}
 				else
 				{
 					AddCode(fmt::format("if($cond) for(int i%u = %u; i%u < %u; i%u += %u) //REP",
-						m_loop_count, src1.init_counter, m_loop_count, src1.end_counter, m_loop_count, src1.increment));
+						m_loop_count, m_inst.src1.init_counter(), m_loop_count, m_inst.src1.end_counter(), m_loop_count, m_inst.src1.increment()));
 					m_loop_count++;
-					m_end_offsets.push_back(src2.end_offset << 2);
+					m_end_offsets.push_back(m_inst.src2.end_offset());
 					AddCode("{");
 					m_code_level++;
 				}
@@ -1344,7 +1347,7 @@ std::string FragmentProgramDecompiler::Decompile()
 
 		m_size += m_offset;
 
-		if (dst.end) break;
+		if (m_inst.dest.end()) break;
 
 		ensure(m_offset % sizeof(u32) == 0);
 		data += m_offset / sizeof(u32);
