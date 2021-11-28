@@ -678,7 +678,7 @@ struct area_base
 	{
 		return{ x1 * size.width, y1 * size.height, x2 * size.width, y2 * size.height };
 	}
-	constexpr area_base operator * (const f32& value) const
+	constexpr area_base operator * (const T& value) const
 	{
 		return{ static_cast<T>(x1 * value), static_cast<T>(y1 * value), static_cast<T>(x2 * value), static_cast<T>(y2 * value) };
 	}
