@@ -1,4 +1,6 @@
 #pragma once
+#include "util/atomic.hpp"
+#include <memory>
 
 class MsgDialogBase;
 

@@ -10,8 +10,7 @@
 
 void VKGSRender::reinitialize_swapchain()
 {
-	m_swapchain_dims.width = m_frame->client_width();
-	m_swapchain_dims.height = m_frame->client_height();
+	m_swapchain_dims = m_frame->client_size();
 
 	// Reject requests to acquire new swapchain if the window is minimized
 	// The NVIDIA driver will spam VK_ERROR_OUT_OF_DATE_KHR if you try to acquire an image from the swapchain and the window is minimized
@@ -384,8 +383,7 @@ void VKGSRender::flip(const rsx::display_flip_info_t& info)
 	// Check swapchain condition/status
 	if (!m_swapchain->supports_automatic_wm_reports())
 	{
-		if (m_swapchain_dims.width != m_frame->client_width() + 0u ||
-			m_swapchain_dims.height != m_frame->client_height() + 0u)
+		if (m_swapchain_dims != m_frame->client_size())
 		{
 			swapchain_unavailable = true;
 		}
@@ -436,7 +434,7 @@ void VKGSRender::flip(const rsx::display_flip_info_t& info)
 			frame_context_cleanup(m_current_frame, true);
 		}
 
-		m_frame->flip(m_context);
+		//m_frame->flip(m_context);
 		rsx::thread::flip(info);
 		return;
 	}
@@ -676,7 +674,7 @@ void VKGSRender::flip(const rsx::display_flip_info_t& info)
 
 			m_upscaler->scale_output(*m_current_command_buffer, image_to_flip, target_image, target_layout, rgn, UPSCALE_AND_COMMIT | UPSCALE_DEFAULT_VIEW);
 		}
-
+/*
 		if (m_frame->screenshot_toggle)
 		{
 			m_frame->screenshot_toggle = false;
@@ -714,6 +712,7 @@ void VKGSRender::flip(const rsx::display_flip_info_t& info)
 			const bool is_bgra = image_to_flip->format() == VK_FORMAT_B8G8R8A8_UNORM;
 			m_frame->take_screenshot(std::move(sshot_frame), buffer_width, buffer_height, is_bgra);
 		}
+*/
 	}
 
 	const bool has_overlay = (m_overlay_manager && m_overlay_manager->has_visible());
@@ -810,6 +809,6 @@ void VKGSRender::flip(const rsx::display_flip_info_t& info)
 
 	m_frame_stats.flip_time = m_profiler.duration();
 
-	m_frame->flip(m_context);
+	//m_frame->flip(m_context);
 	rsx::thread::flip(info);
 }

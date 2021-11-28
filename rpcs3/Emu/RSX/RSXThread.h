@@ -393,23 +393,21 @@ namespace rsx
 		{
 		protected:
 			// Delay before a report update operation is forced to retire
-			const u32 max_zcull_delay_us = 300;
-			const u32 min_zcull_tick_us = 100;
+			static constexpr u32 max_zcull_delay_us = 300;
+			static constexpr u32 min_zcull_tick_us = 100;
 
 			// Number of occlusion query slots available. Real hardware actually has far fewer units before choking
-			const u32 occlusion_query_count = 1024;
-			const u32 max_safe_queue_depth = 892;
+			static constexpr u32 occlusion_query_count = 1024;
+			static constexpr u32 max_safe_queue_depth = 892;
 
-			bool unit_enabled = false;           // The ZCULL unit is on
-			bool write_enabled = false;          // A surface in the ZCULL-monitored tile region has been loaded for rasterization
-			bool stats_enabled = false;          // Collecting of ZCULL statistics is enabled (not same as pixels passing Z test!)
-			bool zpass_count_enabled = false;    // Collecting of ZPASS statistics is enabled. If this is off, the counter does not increment
-			bool host_queries_active = false;    // The backend/host is gathering Z data for the ZCULL unit
-
-			std::array<occlusion_query_info, 1024> m_occlusion_query_data = {};
-			std::stack<occlusion_query_info*> m_free_occlusion_pool{};
+			bool unit_enabled : 1 = false;           // The ZCULL unit is on
+			bool write_enabled : 1 = false;          // A surface in the ZCULL-monitored tile region has been loaded for rasterization
+			bool stats_enabled : 1 = false;          // Collecting of ZCULL statistics is enabled (not same as pixels passing Z test!)
+			bool zpass_count_enabled : 1 = false;    // Collecting of ZPASS statistics is enabled. If this is off, the counter does not increment
+			bool host_queries_active : 1 = false;    // The backend/host is gathering Z data for the ZCULL unit
 
 			occlusion_query_info* m_current_task = nullptr;
+
 			u32 m_statistics_tag_id = 0;
 
 			// Scheduling clock. Granunlarity is min_zcull_tick value.
@@ -420,8 +418,11 @@ namespace rsx
 			u64 m_sync_tag = 0;
 			u64 m_timer = 0;
 
+			std::stack<occlusion_query_info*> m_free_occlusion_pool{};
+
 			std::vector<queued_report_write> m_pending_writes{};
 			std::unordered_map<u32, u32> m_statistics_map{};
+			std::array<occlusion_query_info, 1024> m_occlusion_query_data = {};
 
 			// Enables/disables the ZCULL unit
 			void set_active(class ::rsx::thread* ptimer, bool state, bool flush_queue);
@@ -625,7 +626,7 @@ namespace rsx
 
 		// Occlusion query
 		bool zcull_surface_active = false;
-		std::unique_ptr<reports::ZCULL_control> zcull_ctrl;
+		reports::ZCULL_control *zcull_ctrl = nullptr;
 
 		// Framebuffer setup
 		rsx::gcm_framebuffer_info m_surface_info[rsx::limits::color_buffers_count];
@@ -785,7 +786,6 @@ namespace rsx
 
 	public:
 		atomic_t<bool> sync_point_request = false;
-		bool in_begin_end = false;
 
 		struct desync_fifo_cmd_info
 		{
@@ -797,9 +797,10 @@ namespace rsx
 
 		atomic_t<s32> async_tasks_pending{ 0 };
 
-		bool zcull_stats_enabled = false;
-		bool zcull_rendering_enabled = false;
-		bool zcull_pixel_cnt_enabled = false;
+		bool in_begin_end = false;
+		bool zcull_stats_enabled : 1 = false;
+		bool zcull_rendering_enabled : 1 = false;
+		bool zcull_pixel_cnt_enabled : 1 = false;
 
 		reports::conditional_render_eval cond_render_ctrl;
 

@@ -321,9 +321,9 @@ u64 VKGSRender::get_cycles()
 	return thread_ctrl::get_cycles(static_cast<named_thread<VKGSRender>&>(*this));
 }
 
-VKGSRender::VKGSRender() : GSRender()
+VKGSRender::VKGSRender(GSFrameBase *frame) : m_frame(frame)
 {
-	if (m_instance.create("RPCS3"))
+	if (m_instance.create("RPCS3", false, frame->required_instance_extensions()))
 	{
 		m_instance.bind();
 	}
@@ -346,34 +346,22 @@ VKGSRender::VKGSRender() : GSRender()
 		return;
 	}
 
-	bool gpu_found = false;
 	std::string adapter_name = g_cfg.video.vk.adapter;
 
-	display_handle_t display = m_frame->handle();
-
-#ifdef HAVE_X11
-	std::visit([this](auto&& p) {
-		using T = std::decay_t<decltype(p)>;
-		if constexpr (std::is_same_v<T, std::pair<Display*, Window>>)
-		{
-			m_display_handle = p.first; XFlush(m_display_handle);
-		}
-	}, display);
-#endif
+	auto surface = m_frame->create_surface(m_instance.handle());
 
 	for (auto &gpu : gpus)
 	{
 		if (gpu.get_name() == adapter_name)
 		{
-			m_swapchain.reset(m_instance.create_swapchain(display, gpu));
-			gpu_found = true;
+			m_swapchain.reset(m_instance.create_swapchain(surface, gpu));
 			break;
 		}
 	}
 
-	if (!gpu_found || adapter_name.empty())
+	if (m_swapchain == nullptr || adapter_name.empty())
 	{
-		m_swapchain.reset(m_instance.create_swapchain(display, gpus[0]));
+		m_swapchain.reset(m_instance.create_swapchain(surface, gpus[0]));
 	}
 
 	if (!m_swapchain)
@@ -386,8 +374,7 @@ VKGSRender::VKGSRender() : GSRender()
 	m_device = const_cast<vk::render_device*>(&m_swapchain->get_device());
 	vk::set_current_renderer(m_swapchain->get_device());
 
-	m_swapchain_dims.width = m_frame->client_width();
-	m_swapchain_dims.height = m_frame->client_height();
+	m_swapchain_dims = m_frame->client_size();
 
 	if (!m_swapchain->init(m_swapchain_dims.width, m_swapchain_dims.height))
 	{
@@ -709,11 +696,6 @@ VKGSRender::~VKGSRender()
 	// Device handles/contexts
 	m_swapchain->destroy();
 	m_instance.destroy();
-
-#if defined(HAVE_X11) && defined(HAVE_VULKAN)
-	if (m_display_handle)
-		XCloseDisplay(m_display_handle);
-#endif
 }
 
 bool VKGSRender::on_access_violation(u32 address, bool is_writing)
@@ -1150,14 +1132,11 @@ void VKGSRender::on_init_thread()
 		fmt::throw_exception("No vulkan device was created");
 	}
 
-	GSRender::on_init_thread();
-	zcull_ctrl.reset(static_cast<::rsx::reports::ZCULL_control*>(this));
+	zcull_ctrl = static_cast<::rsx::reports::ZCULL_control*>(this);
 
 	if (!m_overlay_manager)
 	{
-		m_frame->hide();
 		m_shaders_cache->load(nullptr, pipeline_layout);
-		m_frame->show();
 	}
 	else
 	{
@@ -1166,12 +1145,6 @@ void VKGSRender::on_init_thread()
 		// TODO: Handle window resize messages during loading on GPUs without OUT_OF_DATE_KHR support
 		m_shaders_cache->load(&dlg, pipeline_layout);
 	}
-}
-
-void VKGSRender::on_exit()
-{
-	GSRender::on_exit();
-	zcull_ctrl.release();
 }
 
 void VKGSRender::clear_surface(u32 mask)

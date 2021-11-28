@@ -68,7 +68,6 @@ struct EmuCallbacks
 	std::function<void()> init_kb_handler;
 	std::function<void()> init_mouse_handler;
 	std::function<void(std::string_view title_id)> init_pad_handler;
-	std::function<std::unique_ptr<class GSFrameBase>()> get_gs_frame;
 	std::function<void()> init_gs_render;
 	std::function<std::shared_ptr<class camera_handler_base>()> get_camera_handler;
 	std::function<std::shared_ptr<class AudioBackend>()> get_audio;
@@ -115,8 +114,6 @@ class Emulator final
 	// 1. It forces an application to boot immediately by calling Run() in Load().
 	// 2. It signifies that we don't want to exit on Stop(), for example if we want to transition to another application.
 	bool m_force_boot = false;
-
-	bool m_has_gui = true;
 
 public:
 	Emulator() = default;
@@ -254,9 +251,6 @@ public:
 	bool IsStopped() const { return m_state == system_state::stopped; }
 	bool IsReady()   const { return m_state == system_state::ready; }
 	auto GetStatus() const { system_state state = m_state; return state == system_state::frozen ? system_state::paused : state; }
-
-	bool HasGui() const { return m_has_gui; }
-	void SetHasGui(bool has_gui) { m_has_gui = has_gui; }
 
 	void SetDefaultRenderer(video_renderer renderer) { m_default_renderer = renderer; }
 	void SetDefaultGraphicsAdapter(std::string adapter) { m_default_graphics_adapter = std::move(adapter); }

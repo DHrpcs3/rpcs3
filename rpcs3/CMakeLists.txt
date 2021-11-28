@@ -41,33 +41,26 @@ else()
     message("-- Using Custom RPCS3_SRC_DIR=${RPCS3_SRC_DIR}")
 endif()
 
-# Qt5
-# finds Qt libraries and setups custom commands for MOC and UIC
-# Must be done here because generated MOC and UIC targets cant
-# be found otherwise
-include(${CMAKE_SOURCE_DIR}/3rdparty/qt5.cmake)
-
 # subdirectories
 add_subdirectory(Emu)
-add_subdirectory(rpcs3qt)
 
 set(RPCS3_SRC
     display_sleep_control.cpp
-    headless_application.cpp
+#    headless_application.cpp
     main.cpp
-    main_application.cpp
+#    main_application.cpp
     rpcs3_version.cpp
     stb_image.cpp
     stdafx.cpp
 
-    Input/basic_keyboard_handler.cpp
-    Input/basic_mouse_handler.cpp
+#    Input/basic_keyboard_handler.cpp
+#    Input/basic_mouse_handler.cpp
     Input/ds3_pad_handler.cpp
     Input/ds4_pad_handler.cpp
     Input/dualsense_pad_handler.cpp
     Input/evdev_joystick_handler.cpp
     Input/hid_pad_handler.cpp
-    Input/keyboard_pad_handler.cpp
+#    Input/keyboard_pad_handler.cpp
     Input/mm_joystick_handler.cpp
     Input/pad_thread.cpp
     Input/xinput_pad_handler.cpp
@@ -85,13 +78,13 @@ else()
 endif()
 
 gen_git_version(${RPCS3_SRC_DIR})
-set_target_properties(rpcs3
-    PROPERTIES
-        AUTOMOC ON
-        AUTOUIC ON)
+#set_target_properties(rpcs3
+#    PROPERTIES
+#        AUTOMOC ON
+#        AUTOUIC ON)
 
-target_link_libraries(rpcs3 rpcs3_emu rpcs3_ui)
-target_link_libraries(rpcs3 3rdparty::discordRPC 3rdparty::qt5 3rdparty::hidapi 3rdparty::libusb 3rdparty::wolfssl 3rdparty::libcurl)
+target_link_libraries(rpcs3 rpcs3_emu)
+target_link_libraries(rpcs3 3rdparty::discordRPC 3rdparty::hidapi 3rdparty::libusb 3rdparty::wolfssl 3rdparty::libcurl glfw)
 target_link_libraries(rpcs3 ${ADDITIONAL_LIBS})
 
 # Win resource file

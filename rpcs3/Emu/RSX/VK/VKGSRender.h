@@ -1,5 +1,6 @@
 #pragma once
-#include "Emu/RSX/GSRender.h"
+#include "Emu/RSX/RSXThread.h"
+#include "Emu/RSX/GSFrameBase.h"
 #include "Emu/Cell/timers.hpp"
 
 #include "upscalers/upscaling.h"
@@ -340,7 +341,7 @@ namespace vk
 using namespace vk::vmm_allocation_pool_; // clang workaround.
 using namespace vk::upscaling_flags_;     // ditto
 
-class VKGSRender : public GSRender, public ::rsx::reports::ZCULL_control
+class VKGSRender : public rsx::thread, public ::rsx::reports::ZCULL_control
 {
 private:
 	enum
@@ -371,6 +372,7 @@ private:
 	};
 
 private:
+	GSFrameBase *m_frame;
 	VKFragmentProgram m_fragment_prog;
 	VKVertexProgram m_vertex_prog;
 	vk::glsl::program *m_program = nullptr;
@@ -497,13 +499,9 @@ private:
 	vk::shader_interpreter m_shader_interpreter;
 	u32 m_interpreter_state;
 
-#if defined(HAVE_X11) && defined(HAVE_VULKAN)
-	Display *m_display_handle = nullptr;
-#endif
-
 public:
 	u64 get_cycles() final;
-	VKGSRender();
+	VKGSRender(GSFrameBase *frame);
 	~VKGSRender() override;
 
 private:
@@ -578,7 +576,6 @@ protected:
 	void emit_geometry(u32 sub_index) override;
 
 	void on_init_thread() override;
-	void on_exit() override;
 	void flip(const rsx::display_flip_info_t& info) override;
 
 	void renderctl(u32 request_code, void* args) override;

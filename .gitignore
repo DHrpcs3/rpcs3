@@ -123,3 +123,6 @@ yaml-cpp.pc
 cacert.pem
 
 _ReSharper.*/
+
+/.cache
+/build*

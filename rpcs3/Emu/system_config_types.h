@@ -44,7 +44,6 @@ enum class mouse_handler
 enum class video_renderer
 {
 	null,
-	opengl,
 	vulkan,
 };
 

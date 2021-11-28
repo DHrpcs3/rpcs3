@@ -1,8 +1,9 @@
 #pragma once
 
 #include "shader_loading_dialog.h"
-
-class GSRender;
+#include "util/types.hpp"
+#include <string>
+#include <memory>
 
 namespace rsx
 {
@@ -18,7 +19,7 @@ namespace rsx
 		rsx::thread* owner = nullptr;
 		std::shared_ptr<rsx::overlays::message_dialog> dlg{};
 
-		shader_loading_dialog_native(GSRender* ptr);
+		shader_loading_dialog_native(thread* ptr);
 
 		void create(const std::string& msg, const std::string&/* title*/) override;
 		void update_msg(u32 index, const std::string& msg) override;

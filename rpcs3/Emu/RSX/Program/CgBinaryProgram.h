@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Emu/Memory/vm.h"
-#include "Emu/RSX/GL/GLVertexProgram.h"
-#include "Emu/RSX/GL/GLFragmentProgram.h"
+#include "Emu/RSX/VK/VKVertexProgram.h"
+#include "Emu/RSX/VK/VKFragmentProgram.h"
 #include "Emu/RSX/Program/ProgramStateCache.h"
 #include "Utilities/File.h"
 
@@ -368,7 +368,8 @@ public:
 			prog.total_length = metadata.program_ucode_length + metadata.program_start_offset;
 			prog.data = reinterpret_cast<u8*>(be_data.data()) + metadata.program_start_offset;
 			for (u32 i = 0; i < 16; ++i) prog.texture_state.set_dimension(rsx::texture_dimension_extended::texture_dimension_2d, i);
-			GLFragmentDecompilerThread(m_glsl_shader, param_array, prog, unused).Task();
+			VKFragmentProgram program;
+			VKFragmentDecompilerThread(m_glsl_shader, param_array, prog, unused, program).Task();
 		}
 
 		else
@@ -411,7 +412,8 @@ public:
 			RSXVertexProgram prog;
 			program_hash_util::vertex_program_utils::analyse_vertex_program(vdata, 0, prog);
 			for (u32 i = 0; i < 4; ++i) prog.texture_state.set_dimension(rsx::texture_dimension_extended::texture_dimension_2d, i);
-			GLVertexDecompilerThread(prog, m_glsl_shader, param_array).Task();
+			VKVertexProgram program;
+			VKVertexDecompilerThread(prog, m_glsl_shader, param_array, program).Task();
 		}
 	}
 

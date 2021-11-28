@@ -10,10 +10,10 @@ namespace vk
 	{
 		using namespace ::glsl;
 
-		void shader::create(::glsl::program_domain domain, const std::string& source)
+		void shader::create(::glsl::program_domain domain, std::string source)
 		{
 			type     = domain;
-			m_source = source;
+			m_source = std::move(source);
 		}
 
 		VkShaderModule shader::compile()

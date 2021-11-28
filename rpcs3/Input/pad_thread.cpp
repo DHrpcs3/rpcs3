@@ -10,7 +10,6 @@
 #elif HAVE_LIBEVDEV
 #include "evdev_joystick_handler.h"
 #endif
-#include "keyboard_pad_handler.h"
 #include "Emu/Io/Null/NullPadHandler.h"
 #include "Emu/Io/PadHandler.h"
 #include "Emu/Io/pad_config.h"
@@ -110,11 +109,11 @@ void pad_thread::Init()
 		input_log.notice("Reloaded empty pad config");
 	}
 
-	std::shared_ptr<keyboard_pad_handler> keyptr;
 
 	// Always have a Null Pad Handler
 	std::shared_ptr<NullPadHandler> nullpad = std::make_shared<NullPadHandler>();
 	handlers.emplace(pad_handler::null, nullpad);
+	nullpad->Init();
 
 	for (u32 i = 0; i < CELL_PAD_MAX_PORT_NUM; i++) // max 7 pads
 	{
@@ -132,10 +131,7 @@ void pad_thread::Init()
 			switch (handler_type)
 			{
 			case pad_handler::keyboard:
-				keyptr = std::make_shared<keyboard_pad_handler>();
-				keyptr->moveToThread(static_cast<QThread*>(curthread));
-				keyptr->SetTargetWindow(static_cast<QWindow*>(curwindow));
-				cur_pad_handler = keyptr;
+				cur_pad_handler = nullpad;
 				break;
 			case pad_handler::ds3:
 				cur_pad_handler = std::make_shared<ds3_pad_handler>();
@@ -163,8 +159,8 @@ void pad_thread::Init()
 				break;
 			}
 			handlers.emplace(handler_type, cur_pad_handler);
+			cur_pad_handler->Init();
 		}
-		cur_pad_handler->Init();
 
 		m_pads[i] = std::make_shared<Pad>(CELL_PAD_STATUS_DISCONNECTED, pad_settings[i].device_capability, pad_settings[i].device_type);
 
@@ -331,24 +327,24 @@ std::shared_ptr<PadHandlerBase> pad_thread::GetHandler(pad_handler type)
 	switch (type)
 	{
 	case pad_handler::null:
-		return std::make_unique<NullPadHandler>();
 	case pad_handler::keyboard:
-		return std::make_unique<keyboard_pad_handler>();
+		return std::make_shared<NullPadHandler>();
+		//std::abort();
 	case pad_handler::ds3:
-		return std::make_unique<ds3_pad_handler>();
+		return std::make_shared<ds3_pad_handler>();
 	case pad_handler::ds4:
-		return std::make_unique<ds4_pad_handler>();
+		return std::make_shared<ds4_pad_handler>();
 	case pad_handler::dualsense:
-		return std::make_unique<dualsense_pad_handler>();
+		return std::make_shared<dualsense_pad_handler>();
 #ifdef _WIN32
 	case pad_handler::xinput:
-		return std::make_unique<xinput_pad_handler>();
+		return std::make_shared<xinput_pad_handler>();
 	case pad_handler::mm:
-		return std::make_unique<mm_joystick_handler>();
+		return std::make_shared<mm_joystick_handler>();
 #endif
 #ifdef HAVE_LIBEVDEV
 	case pad_handler::evdev:
-		return std::make_unique<evdev_joystick_handler>();
+		return std::make_shared<evdev_joystick_handler>();
 #endif
 	}
 
@@ -368,7 +364,6 @@ void pad_thread::InitPadConfig(cfg_pad& cfg, pad_handler type, std::shared_ptr<P
 		static_cast<NullPadHandler*>(handler.get())->init_config(&cfg);
 		break;
 	case pad_handler::keyboard:
-		static_cast<keyboard_pad_handler*>(handler.get())->init_config(&cfg);
 		break;
 	case pad_handler::ds3:
 		static_cast<ds3_pad_handler*>(handler.get())->init_config(&cfg);

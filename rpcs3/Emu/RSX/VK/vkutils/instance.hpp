@@ -77,6 +77,11 @@ namespace vk
 			}
 		}
 
+		VkInstance handle() const
+		{
+			return m_instance;
+		}
+
 		void destroy()
 		{
 			if (!m_instance) return;
@@ -117,7 +122,7 @@ namespace vk
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wold-style-cast"
 #endif
-		bool create(const char* app_name, bool fast = false)
+		bool create(const char* app_name, bool fast = false, std::vector<const char*> required_extensions = {})
 		{
 			// Initialize a vulkan instance
 			VkApplicationInfo app = {};
@@ -131,7 +136,7 @@ namespace vk
 
 			// Set up instance information
 
-			std::vector<const char*> extensions;
+			std::vector<const char*> extensions = std::move(required_extensions);
 			std::vector<const char*> layers;
 
 			if (!fast)
@@ -171,7 +176,7 @@ namespace vk
 				extensions.push_back(VK_MVK_MACOS_SURFACE_EXTENSION_NAME);
 #else
 				bool found_surface_ext = false;
-#ifdef HAVE_X11
+#if defined(HAVE_X11) && defined(VK_KHR_XLIB_SURFACE_EXTENSION_NAME)
 				if (support.is_supported(VK_KHR_XLIB_SURFACE_EXTENSION_NAME))
 				{
 					extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
@@ -251,70 +256,15 @@ namespace vk
 			return gpus;
 		}
 
-		swapchain_base* create_swapchain(display_handle_t window_handle, vk::physical_device& dev)
+		swapchain_base* create_swapchain(VkSurfaceKHR surface, vk::physical_device& dev)
 		{
 			bool force_wm_reporting_off = false;
-#ifdef _WIN32
-			using swapchain_NATIVE = swapchain_WIN32;
-			HINSTANCE hInstance = NULL;
-
-			VkWin32SurfaceCreateInfoKHR createInfo = {};
-			createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-			createInfo.hinstance = hInstance;
-			createInfo.hwnd = window_handle;
-
-			CHECK_RESULT(vkCreateWin32SurfaceKHR(m_instance, &createInfo, NULL, &m_surface));
-
-#elif defined(__APPLE__)
-			using swapchain_NATIVE = swapchain_MacOS;
-			VkMacOSSurfaceCreateInfoMVK createInfo = {};
-			createInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
-			createInfo.pView = window_handle;
-
-			CHECK_RESULT(vkCreateMacOSSurfaceMVK(m_instance, &createInfo, NULL, &m_surface));
-#else
-#ifdef HAVE_X11
-			using swapchain_NATIVE = swapchain_X11;
-#else
-			using swapchain_NATIVE = swapchain_Wayland;
-#endif
-
-			std::visit([&](auto&& p)
-			{
-				using T = std::decay_t<decltype(p)>;
-
-#ifdef HAVE_X11
-				if constexpr (std::is_same_v<T, std::pair<Display*, Window>>)
-				{
-					VkXlibSurfaceCreateInfoKHR createInfo = {};
-					createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-					createInfo.dpy = p.first;
-					createInfo.window = p.second;
-					CHECK_RESULT(vkCreateXlibSurfaceKHR(this->m_instance, &createInfo, nullptr, &m_surface));
-				}
-				else
-#endif
-#ifdef VK_USE_PLATFORM_WAYLAND_KHR
-					if constexpr (std::is_same_v<T, std::pair<wl_display*, wl_surface*>>)
-					{
-						VkWaylandSurfaceCreateInfoKHR createInfo = {};
-						createInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
-						createInfo.display = p.first;
-						createInfo.surface = p.second;
-						CHECK_RESULT(vkCreateWaylandSurfaceKHR(this->m_instance, &createInfo, nullptr, &m_surface));
-						force_wm_reporting_off = true;
-					}
-					else
-#endif
-					{
-						static_assert(std::conditional_t<true, std::false_type, T>::value, "Unhandled window_handle type in std::variant");
-					}
-			}, window_handle);
-#endif
 
 			u32 device_queues = dev.get_queue_count();
 			std::vector<VkBool32> supports_present(device_queues, VK_FALSE);
 			bool present_possible = true;
+
+			m_surface = surface;
 
 			for (u32 index = 0; index < device_queues; index++)
 			{
@@ -379,10 +329,7 @@ namespace vk
 			{
 				//Native(sw) swapchain
 				rsx_log.error("It is not possible for the currently selected GPU to present to the window (Likely caused by NVIDIA driver running the current display)");
-				rsx_log.warning("Falling back to software present support (native windowing API)");
-				auto swapchain = new swapchain_NATIVE(dev, -1, graphics_queue_idx, transfer_queue_idx);
-				swapchain->create(window_handle);
-				return swapchain;
+				std::abort();
 			}
 
 			// Get the list of VkFormat's that are supported:

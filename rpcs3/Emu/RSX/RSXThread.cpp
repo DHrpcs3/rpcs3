@@ -419,7 +419,7 @@ namespace rsx
 
 		g_user_asked_for_frame_capture = false;
 
-		if (g_cfg.misc.use_native_interface && (g_cfg.video.renderer == video_renderer::opengl || g_cfg.video.renderer == video_renderer::vulkan))
+		if (g_cfg.misc.use_native_interface && (g_cfg.video.renderer == video_renderer::vulkan))
 		{
 			m_overlay_manager = g_fxo->init<rsx::overlays::display_manager>(0);
 		}
@@ -593,12 +593,6 @@ namespace rsx
 
 		is_inited = true;
 		is_inited.notify_all();
-
-		if (!zcull_ctrl)
-		{
-			//Backend did not provide an implementation, provide NULL object
-			zcull_ctrl = std::make_unique<::rsx::reports::ZCULL_control>();
-		}
 
 		performance_counters.state = FIFO_state::empty;
 

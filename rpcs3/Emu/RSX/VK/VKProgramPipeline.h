@@ -58,9 +58,10 @@ namespace vk
 
 		public:
 			shader() = default;
-			~shader() = default;
+			shader(const shader &) = delete;
+			// TODO: make it moveable
 
-			void create(::glsl::program_domain domain, const std::string& source);
+			void create(::glsl::program_domain domain, std::string source);
 
 			VkShaderModule compile();
 

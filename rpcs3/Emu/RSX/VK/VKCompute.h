@@ -142,6 +142,7 @@ namespace vk
 		void run(VkCommandBuffer cmd, const vk::buffer* data, u32 data_offset, u32 data_length, u32 zeta_offset, u32 stencil_offset);
 	};
 
+	// FIXME: remove template
 	template<bool _SwapBytes = false>
 	struct cs_gather_d24x8 : cs_interleave_task
 	{
@@ -173,6 +174,7 @@ namespace vk
 		}
 	};
 
+	// FIXME: remove template
 	template<bool _SwapBytes = false, bool _DepthFloat = false>
 	struct cs_gather_d32x8 : cs_interleave_task
 	{
@@ -221,6 +223,7 @@ namespace vk
 		cs_scatter_d24x8();
 	};
 
+	// FIXME: remove template
 	template<bool _DepthFloat = false>
 	struct cs_scatter_d32x8 : cs_interleave_task
 	{
@@ -253,6 +256,8 @@ namespace vk
 		}
 	};
 
+	// FIXME: remove template
+	//        From and To used just to determine size
 	template<typename From, typename To, bool _SwapSrc = false, bool _SwapDst = false>
 	struct cs_fconvert_task : cs_shuffle_base
 	{
@@ -385,6 +390,8 @@ namespace vk
 		virtual void run(VkCommandBuffer cmd, const vk::buffer* dst, u32 out_offset, const vk::buffer* src, u32 in_offset, u32 data_length, u32 width, u32 height, u32 depth, u32 mipmaps) = 0;
 	};
 
+	// FIXME: remove template
+	//        _BlockType and _BaseType used just to determine size
 	template <typename _BlockType, typename _BaseType, bool _SwapBytes>
 	struct cs_deswizzle_3d : cs_deswizzle_base
 	{
@@ -421,6 +428,7 @@ namespace vk
 
 			create();
 
+			// FIXME: move it to cpp
 			m_src =
 			"#version 450\n"
 			"layout(local_size_x = %ws, local_size_y = 1, local_size_z = 1) in;\n\n"
@@ -565,7 +573,7 @@ namespace vk
 				}
 			}
 
-			const std::pair<std::string, std::string> syntax_replace[] =
+			const std::pair<std::string_view, std::string> syntax_replace[] =
 			{
 				{ "%ws", std::to_string(optimal_group_size) },
 				{ "%_wordcount", std::to_string(sizeof(_BlockType) / 4) },
