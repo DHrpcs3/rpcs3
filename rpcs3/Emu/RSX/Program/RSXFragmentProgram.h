@@ -300,7 +300,7 @@ namespace rsx
 			static constexpr auto be_cond_swizzle_y_hi_mask  = genMask(16, 1);
 			static constexpr auto be_cond_swizzle_z_mask     = genMask(getMaskEnd(be_cond_swizzle_y_hi_mask), 2);
 			static constexpr auto be_cond_swizzle_w_mask     = genMask(getMaskEnd(be_cond_swizzle_z_mask), 2);
-			static constexpr auto be_abs_mask                = genMask(getMaskEnd(be_cond_swizzle_z_mask), 1);
+			static constexpr auto be_abs_mask                = genMask(getMaskEnd(be_cond_swizzle_w_mask), 1);
 			static constexpr auto be_cond_mod_reg_index_mask = genMask(getMaskEnd(be_abs_mask), 1);
 			static constexpr auto be_cond_reg_index_mask     = genMask(getMaskEnd(be_cond_mod_reg_index_mask), 1);
 

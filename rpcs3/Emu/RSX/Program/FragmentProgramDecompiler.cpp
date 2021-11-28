@@ -1248,7 +1248,7 @@ std::string FragmentProgramDecompiler::Decompile()
 		m_offset = 4 * sizeof(u32);
 		opflags = 0;
 
-		const u32 opcode = m_inst.dest.opcode() | (m_inst.src1.opcode_is_branch() << 6);
+		const u32 opcode = m_inst.dest.opcode() | (m_inst.src1.opcode_is_branch() ? 0x40 : 0);
 
 		auto SIP = [&]()
 		{
@@ -1272,8 +1272,8 @@ std::string FragmentProgramDecompiler::Decompile()
 			case RSX_FP_OPCODE_IFE:
 				AddCode("if($cond)");
 				if (m_inst.src2.end_offset() != m_inst.src1.else_offset())
-					m_else_offsets.push_back(m_inst.src1.else_offset() << 2);
-				m_end_offsets.push_back(m_inst.src2.end_offset() << 2);
+					m_else_offsets.push_back(m_inst.src1.else_offset());
+				m_end_offsets.push_back(m_inst.src2.end_offset());
 				AddCode("{");
 				m_code_level++;
 				break;
