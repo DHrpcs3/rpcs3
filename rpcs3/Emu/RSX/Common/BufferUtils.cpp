@@ -408,11 +408,13 @@ namespace
 			const u8 attribute_sz = min_block_size >> 1;
 			for (u32 n = 0; n < remainder; ++n)
 			{
-				auto src_ptr2 = utils::bless<const be_t<u16>>(src_ptr);
-				auto dst_ptr2 = utils::bless<u16>(dst_ptr);
-
 				for (u32 v = 0; v < attribute_sz; ++v)
-					dst_ptr2[v] = src_ptr2[v];
+				{
+					be_t<u16> src;
+					std::memcpy(&src, src_ptr + v * sizeof(u16), sizeof(u16));
+					u16 swapped = src;
+					std::memcpy(dst_ptr + v * sizeof(u16), &swapped, sizeof(u16));
+				}
 
 				src_ptr += src_stride;
 				dst_ptr += dst_stride;
