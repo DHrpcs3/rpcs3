@@ -313,6 +313,7 @@ namespace vk
 			using swapchain_NATIVE = swapchain_Wayland;
 #endif
 
+#ifndef ANDROID
 			std::visit([&](auto&& p)
 			{
 				using T = std::decay_t<decltype(p)>;
@@ -344,6 +345,7 @@ namespace vk
 						static_assert(std::conditional_t<true, std::false_type, T>::value, "Unhandled window_handle type in std::variant");
 					}
 			}, window_handle);
+#endif
 #endif
 
 			u32 device_queues = dev.get_queue_count();
