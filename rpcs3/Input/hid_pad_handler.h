@@ -87,6 +87,7 @@ public:
 	bool Init() override;
 	void process() override;
 	std::vector<pad_list_entry> list_devices() override;
+	std::vector<pad_list_entry> list_connected_devices();
 
 protected:
 	enum class DataStatus
