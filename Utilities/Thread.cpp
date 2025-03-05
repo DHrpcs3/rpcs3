@@ -2945,7 +2945,9 @@ void thread_ctrl::detect_cpu_layout()
 	}
 }
 
-#ifdef __ANDROID__
+#if 0
+//FIXME
+
 void detect_big_little_topology(std::vector<int>& big_cores, std::vector<int>& little_cores, std::vector<int>& prime_cores)
 {
     big_cores.clear();
