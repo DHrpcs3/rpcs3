@@ -169,6 +169,7 @@ namespace vk
 		bool get_compatible_memory_type(u32 typeBits, u32 desired_mask, u32* type_index) const;
 		void rebalance_memory_type_usage();
 
+		physical_device& gpu() { return *pgpu; }
 		const physical_device& gpu() const { return *pgpu; }
 		const memory_type_mapping& get_memory_mapping() const { return memory_map; }
 		const gpu_formats_support& get_formats_support() const { return m_formats_support; }
