@@ -119,67 +119,6 @@ struct cfg_root : cfg::node
 	{
 		node_video(cfg::node* _this) : cfg::node(_this, "Video") {}
 
-#if defined(HAVE_VULKAN)
-		cfg::_enum<video_renderer> renderer{ this, "Renderer", video_renderer::vulkan };
-#else
-		cfg::_enum<video_renderer> renderer{ this, "Renderer", video_renderer::opengl };
-#endif
-
-		cfg::_enum<video_resolution> resolution{ this, "Resolution", video_resolution::_720p };
-		cfg::_enum<video_aspect> aspect_ratio{ this, "Aspect ratio", video_aspect::_16_9 };
-		cfg::_enum<frame_limit_type> frame_limit{ this, "Frame limit", frame_limit_type::_auto, true };
-		cfg::_float<0, 1000> second_frame_limit{ this, "Second Frame Limit", 0, true }; // 0 disables its effect
-		cfg::_enum<msaa_level> antialiasing_level{ this, "MSAA", msaa_level::_auto };
-		cfg::_enum<shader_mode> shadermode{ this, "Shader Mode", shader_mode::async_with_interpreter };
-		cfg::_enum<gpu_preset_level> shader_precision{ this, "Shader Precision", gpu_preset_level::high };
-
-		cfg::_bool write_color_buffers{ this, "Write Color Buffers" };
-		cfg::_bool write_depth_buffer{ this, "Write Depth Buffer" };
-		cfg::_bool read_color_buffers{ this, "Read Color Buffers" };
-		cfg::_bool read_depth_buffer{ this, "Read Depth Buffer" };
-		cfg::_bool handle_tiled_memory{ this, "Handle RSX Memory Tiling", false, true };
-		cfg::_bool log_programs{ this, "Log shader programs" };
-		cfg::_bool vsync{ this, "VSync" };
-		cfg::_bool debug_output{ this, "Debug output" };
-		cfg::_bool debug_overlay{ this, "Debug overlay", false, true };
-		cfg::_bool renderdoc_compatiblity{ this, "Renderdoc Compatibility Mode" };
-		cfg::_bool use_gpu_texture_scaling{ this, "Use GPU texture scaling", false };
-		cfg::_bool stretch_to_display_area{ this, "Stretch To Display Area", false, true };
-		cfg::_bool force_high_precision_z_buffer{ this, "Force High Precision Z buffer" };
-		cfg::_bool strict_rendering_mode{ this, "Strict Rendering Mode" };
-		cfg::_bool disable_zcull_queries{ this, "Disable ZCull Occlusion Queries", false, true };
-		cfg::_bool disable_video_output{ this, "Disable Video Output", false, true };
-		cfg::_bool disable_vertex_cache{ this, "Disable Vertex Cache", false };
-		cfg::_bool disable_FIFO_reordering{ this, "Disable FIFO Reordering", false };
-		cfg::_bool frame_skip_enabled{ this, "Enable Frame Skip", false, true };
-		cfg::_bool force_cpu_blit_processing{ this, "Force CPU Blit", false, true }; // Debugging option
-		cfg::_bool disable_on_disk_shader_cache{ this, "Disable On-Disk Shader Cache", false };
-		cfg::_bool disable_vulkan_mem_allocator{ this, "Disable Vulkan Memory Allocator", false };
-		cfg::_bool full_rgb_range_output{ this, "Use full RGB output range", true, true }; // Video out dynamic range
-		cfg::_bool strict_texture_flushing{ this, "Strict Texture Flushing", false };
-		cfg::_bool multithreaded_rsx{ this, "Multithreaded RSX", false };
-		cfg::_bool relaxed_zcull_sync{ this, "Relaxed ZCULL Sync", false };
-		cfg::_bool force_hw_MSAA_resolve{ this, "Force Hardware MSAA Resolve", false, true };
-		cfg::_enum<stereo_render_mode_options> stereo_render_mode{ this, "3D Display Mode", stereo_render_mode_options::disabled };
-		cfg::_bool debug_program_analyser{ this, "Debug Program Analyser", false };
-		cfg::_bool precise_zpass_count{ this, "Accurate ZCULL stats", true };
-		cfg::_int<1, 8> consecutive_frames_to_draw{ this, "Consecutive Frames To Draw", 1, true};
-		cfg::_int<1, 8> consecutive_frames_to_skip{ this, "Consecutive Frames To Skip", 1, true};
-		cfg::_int<25, 800> resolution_scale_percent{ this, "Resolution Scale", 100 };
-		cfg::uint<0, 16> anisotropic_level_override{ this, "Anisotropic Filter Override", 0, true };
-		cfg::_float<-32, 32> texture_lod_bias{ this, "Texture LOD Bias Addend", 0, true };
-		cfg::_int<1, 1024> min_scalable_dimension{ this, "Minimum Scalable Dimension", 16 };
-		cfg::_int<0, 16> shader_compiler_threads_count{ this, "Shader Compiler Threads", 0 };
-		cfg::_int<0, 30000000> driver_recovery_timeout{ this, "Driver Recovery Timeout", 1000000, true };
-		cfg::uint<0, 16667> driver_wakeup_delay{ this, "Driver Wake-Up Delay", 1, true };
-		cfg::_int<1, 3000> vblank_rate{ this, "Vblank Rate", 60, true }; // Changing this from 60 may affect game speed in unexpected ways
-		cfg::_bool vblank_ntsc{ this, "Vblank NTSC Fixup", false, true };
-		cfg::_bool decr_memory_layout{ this, "DECR memory layout", false}; // Force enable increased allowed main memory range as DECR console
-		cfg::_bool host_label_synchronization{ this, "Allow Host GPU Labels", false };
-		cfg::_bool disable_msl_fast_math{ this, "Disable MSL Fast Math", false };
-		cfg::_bool disable_async_host_memory_manager{ this, "Disable Asynchronous Memory Manager", false, true };
-		cfg::_enum<output_scaling_mode> output_scaling{ this, "Output Scaling Mode", output_scaling_mode::bilinear, true };
-
 		struct node_vk : cfg::node
 		{
 			node_vk(cfg::node* _this) : cfg::node(_this, "Vulkan") {}
@@ -192,7 +131,11 @@ struct cfg_root : cfg::node
 			cfg::uint<0, 100> rcas_sharpening_intensity{ this, "FidelityFX CAS Sharpening Intensity", 50, true };
 			cfg::_enum<vk_gpu_scheduler_mode> asynchronous_scheduler{ this, "Asynchronous Queue Scheduler", vk_gpu_scheduler_mode::safe };
 			cfg::uint<256, 65536> vram_allocation_limit{ this, "VRAM allocation limit (MB)", 65536, false };
-
+#ifdef ANDROID
+			cfg::string custom_driver_path{ this, "Custom Driver Path", "", false };
+			cfg::string custom_driver_internal_data_dir{ this, "Custom Driver Internal Data Directory", "", false };
+			cfg::string custom_driver_hook_dir{ this, "Custom Driver Hook Directory", "", false };
+#endif
 		} vk{ this };
 
 		struct node_perf_overlay : cfg::node
@@ -233,6 +176,66 @@ struct cfg_root : cfg::node
 
 		} shader_preloading_dialog{ this };
 
+#if defined(HAVE_VULKAN)
+		cfg::_enum<video_renderer> renderer{ this, "Renderer", video_renderer::vulkan };
+#else
+		cfg::_enum<video_renderer> renderer{ this, "Renderer", video_renderer::opengl };
+#endif
+
+		cfg::_enum<video_resolution> resolution{ this, "Resolution", video_resolution::_720p };
+		cfg::_enum<video_aspect> aspect_ratio{ this, "Aspect ratio", video_aspect::_16_9 };
+		cfg::_enum<frame_limit_type> frame_limit{ this, "Frame limit", frame_limit_type::_auto, true };
+		cfg::_float<0, 1000> second_frame_limit{ this, "Second Frame Limit", 0, true }; // 0 disables its effect
+		cfg::_enum<msaa_level> antialiasing_level{ this, "MSAA", msaa_level::_auto };
+		cfg::_enum<shader_mode> shadermode{ this, "Shader Mode", shader_mode::async_with_interpreter };
+		cfg::_enum<gpu_preset_level> shader_precision{ this, "Shader Precision", gpu_preset_level::high };
+		cfg::_enum<output_scaling_mode> output_scaling{ this, "Output Scaling Mode", output_scaling_mode::bilinear, true };
+		cfg::_enum<stereo_render_mode_options> stereo_render_mode{ this, "3D Display Mode", stereo_render_mode_options::disabled };
+
+		cfg::_bool write_color_buffers{ this, "Write Color Buffers" };
+		cfg::_bool write_depth_buffer{ this, "Write Depth Buffer" };
+		cfg::_bool read_color_buffers{ this, "Read Color Buffers" };
+		cfg::_bool read_depth_buffer{ this, "Read Depth Buffer" };
+		cfg::_bool handle_tiled_memory{ this, "Handle RSX Memory Tiling", false, true };
+		cfg::_bool log_programs{ this, "Log shader programs" };
+		cfg::_bool vsync{ this, "VSync" };
+		cfg::_bool debug_output{ this, "Debug output" };
+		cfg::_bool debug_overlay{ this, "Debug overlay", false, true };
+		cfg::_bool renderdoc_compatiblity{ this, "Renderdoc Compatibility Mode" };
+		cfg::_bool use_gpu_texture_scaling{ this, "Use GPU texture scaling", false };
+		cfg::_bool stretch_to_display_area{ this, "Stretch To Display Area", false, true };
+		cfg::_bool force_high_precision_z_buffer{ this, "Force High Precision Z buffer" };
+		cfg::_bool strict_rendering_mode{ this, "Strict Rendering Mode" };
+		cfg::_bool disable_zcull_queries{ this, "Disable ZCull Occlusion Queries", false, true };
+		cfg::_bool disable_video_output{ this, "Disable Video Output", false, true };
+		cfg::_bool disable_vertex_cache{ this, "Disable Vertex Cache", false };
+		cfg::_bool disable_FIFO_reordering{ this, "Disable FIFO Reordering", false };
+		cfg::_bool frame_skip_enabled{ this, "Enable Frame Skip", false, true };
+		cfg::_bool force_cpu_blit_processing{ this, "Force CPU Blit", false, true }; // Debugging option
+		cfg::_bool disable_on_disk_shader_cache{ this, "Disable On-Disk Shader Cache", false };
+		cfg::_bool disable_vulkan_mem_allocator{ this, "Disable Vulkan Memory Allocator", false };
+		cfg::_bool full_rgb_range_output{ this, "Use full RGB output range", true, true }; // Video out dynamic range
+		cfg::_bool strict_texture_flushing{ this, "Strict Texture Flushing", false };
+		cfg::_bool multithreaded_rsx{ this, "Multithreaded RSX", false };
+		cfg::_bool relaxed_zcull_sync{ this, "Relaxed ZCULL Sync", false };
+		cfg::_bool force_hw_MSAA_resolve{ this, "Force Hardware MSAA Resolve", false, true };
+		cfg::_bool debug_program_analyser{ this, "Debug Program Analyser", false };
+		cfg::_bool precise_zpass_count{ this, "Accurate ZCULL stats", true };
+		cfg::_int<1, 8> consecutive_frames_to_draw{ this, "Consecutive Frames To Draw", 1, true};
+		cfg::_int<1, 8> consecutive_frames_to_skip{ this, "Consecutive Frames To Skip", 1, true};
+		cfg::_int<25, 800> resolution_scale_percent{ this, "Resolution Scale", 100 };
+		cfg::uint<0, 16> anisotropic_level_override{ this, "Anisotropic Filter Override", 0, true };
+		cfg::_float<-32, 32> texture_lod_bias{ this, "Texture LOD Bias Addend", 0, true };
+		cfg::_int<1, 1024> min_scalable_dimension{ this, "Minimum Scalable Dimension", 16 };
+		cfg::_int<0, 16> shader_compiler_threads_count{ this, "Shader Compiler Threads", 0 };
+		cfg::_int<0, 30000000> driver_recovery_timeout{ this, "Driver Recovery Timeout", 1000000, true };
+		cfg::uint<0, 16667> driver_wakeup_delay{ this, "Driver Wake-Up Delay", 1, true };
+		cfg::_int<1, 3000> vblank_rate{ this, "Vblank Rate", 60, true }; // Changing this from 60 may affect game speed in unexpected ways
+		cfg::_bool vblank_ntsc{ this, "Vblank NTSC Fixup", false, true };
+		cfg::_bool decr_memory_layout{ this, "DECR memory layout", false}; // Force enable increased allowed main memory range as DECR console
+		cfg::_bool host_label_synchronization{ this, "Allow Host GPU Labels", false };
+		cfg::_bool disable_msl_fast_math{ this, "Disable MSL Fast Math", false };
+		cfg::_bool disable_async_host_memory_manager{ this, "Disable Asynchronous Memory Manager", false, true };
 	} video{ this };
 
 	struct node_audio : cfg::node
