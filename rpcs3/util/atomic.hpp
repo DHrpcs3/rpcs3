@@ -2,6 +2,7 @@
 
 #include "util/types.hpp"
 #include <functional>
+#include <thread>
 
 #ifndef _MSC_VER
 #pragma GCC diagnostic push
@@ -1685,15 +1686,48 @@ public:
 		});
 	}
 
+	static constexpr std::size_t kSpinRelaxCount = 64;
+	static constexpr std::size_t kSpinCount = 512;
+
 	void wait(type old_value, atomic_wait_timeout timeout = atomic_wait_timeout::inf) const
 		requires(sizeof(type) == 4)
 	{
+		auto &data = *reinterpret_cast<const std::atomic<u32> *>(&m_data);
+
+		for (std::size_t i = 0; i < kSpinCount; ++i)
+		{
+			if (std::bit_cast<type>(data.load()) != old_value)
+			{
+				return;
+			}
+
+			if (i > kSpinRelaxCount)
+			{
+				std::this_thread::yield();
+			}
+		}
+
 		atomic_wait_engine::wait(&m_data, std::bit_cast<u32>(old_value), static_cast<u64>(timeout));
 	}
 
 	[[deprecated]] void wait(type old_value, atomic_wait_timeout timeout = atomic_wait_timeout::inf) const
 		requires(sizeof(type) == 8)
 	{
+		auto &data = *reinterpret_cast<const std::atomic<u64> *>(&m_data);
+
+		for (std::size_t i = 0; i < kSpinCount; ++i)
+		{
+			if (std::bit_cast<type>(data.load()) != old_value)
+			{
+				return;
+			}
+
+			if (i > kSpinRelaxCount)
+			{
+				std::this_thread::yield();
+			}
+		}
+
 		atomic_wait::info ext[2]{};
 		ext[0].data = reinterpret_cast<const char*>(&m_data) + 4;
 		ext[0].old = std::bit_cast<u64>(old_value) >> 32;
