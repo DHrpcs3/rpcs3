@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Utilities/Thread.h"
 #include "system_config_types.h"
 #include "Utilities/Config.h"
 
@@ -44,6 +45,22 @@ struct cfg_root : cfg::node
 		cfg::_bool spu_accurate_reservations{ this, "Accurate SPU Reservations", true };
 		cfg::_bool accurate_cache_line_stores{ this, "Accurate Cache Line Stores", false };
 		cfg::_bool rsx_accurate_res_access{this, "Accurate RSX reservation access", false, true};
+
+#ifdef ANDROID
+		struct node_affinity : cfg::node
+		{
+		public:
+			node_affinity(cfg::node* _this) : cfg::node(_this, "Affinity") {}
+			cfg::_enum<thread_class> cpu0{this, "CPU0", thread_class::general, true};
+			cfg::_enum<thread_class> cpu1{this, "CPU1", thread_class::general, true};
+			cfg::_enum<thread_class> cpu2{this, "CPU2", thread_class::general, true};
+			cfg::_enum<thread_class> cpu3{this, "CPU3", thread_class::general, true};
+			cfg::_enum<thread_class> cpu4{this, "CPU4", thread_class::general, true};
+			cfg::_enum<thread_class> cpu5{this, "CPU5", thread_class::general, true};
+			cfg::_enum<thread_class> cpu6{this, "CPU6", thread_class::general, true};
+			cfg::_enum<thread_class> cpu7{this, "CPU7", thread_class::general, true};
+		} affinity { this };
+#endif
 
 		struct fifo_setting : public cfg::_enum<rsx_fifo_mode>
 		{
@@ -202,7 +219,13 @@ struct cfg_root : cfg::node
 		cfg::_enum<video_aspect> aspect_ratio{ this, "Aspect ratio", video_aspect::_16_9 };
 		cfg::_enum<frame_limit_type> frame_limit{ this, "Frame limit", frame_limit_type::_auto, true };
 		cfg::_float<0, 1000> second_frame_limit{ this, "Second Frame Limit", 0, true }; // 0 disables its effect
-		cfg::_enum<msaa_level> antialiasing_level{ this, "MSAA", msaa_level::_auto };
+		cfg::_enum<msaa_level> antialiasing_level{ this, "MSAA",
+#ifdef ANDROID
+			msaa_level::none
+#else
+			msaa_level::_auto
+#endif
+		};
 		cfg::_enum<shader_mode> shadermode{ this, "Shader Mode", shader_mode::async_with_interpreter };
 		cfg::_enum<gpu_preset_level> shader_precision{ this, "Shader Precision", gpu_preset_level::high };
 		cfg::_enum<output_scaling_mode> output_scaling{ this, "Output Scaling Mode", output_scaling_mode::bilinear, true };
