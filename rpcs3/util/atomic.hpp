@@ -1686,8 +1686,8 @@ public:
 		});
 	}
 
-	static constexpr std::size_t kSpinRelaxCount = 64;
-	static constexpr std::size_t kSpinCount = 512;
+	static constexpr std::size_t kSpinRelaxCount = 8;
+	static constexpr std::size_t kSpinCount = 16;
 
 	void wait(type old_value, atomic_wait_timeout timeout = atomic_wait_timeout::inf) const
 		requires(sizeof(type) == 4)
