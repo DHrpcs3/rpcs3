@@ -15,6 +15,10 @@
 #include "Emu/CPU/Backends/AArch64/AArch64Signal.h"
 #endif
 
+#ifdef __ANDROID__
+#include <fstream>
+#endif
+
 #ifdef _WIN32
 #include <Windows.h>
 #include <Psapi.h>
@@ -54,6 +58,12 @@ DYNAMIC_IMPORT_RENAME("Kernel32.dll", SetThreadDescriptionImport, "SetThreadDesc
 #include <sys/timerfd.h>
 #include <unistd.h>
 #endif
+#ifdef __ANDROID__
+#include <android/log.h>
+#define LOG_TAG "ThreadBase"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#endif
+
 
 #if defined(__APPLE__) || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
 # include <sys/sysctl.h>
@@ -2164,6 +2174,17 @@ void thread_base::start()
 	pthread_attr_init(&stack_size_attr);
 	pthread_attr_setstacksize(&stack_size_attr, 0x800000);
 	ensure(pthread_create(reinterpret_cast<pthread_t*>(&m_thread.raw()), &stack_size_attr, entry_point, this) == 0);
+#elif defined(__ANDROID__)
+        pthread_attr_t stack_size_attr;
+        pthread_attr_init(&stack_size_attr);
+        pthread_attr_setstacksize(&stack_size_attr, 0x800000);
+        int result = pthread_create(reinterpret_cast<pthread_t*>(&m_thread.raw()), &stack_size_attr, entry_point, this);
+
+        if (result != 0) {
+            LOGD("Falha ao criar o thread: %d", result);
+        }
+
+        ensure(result == 0);
 #else
 	ensure(pthread_create(reinterpret_cast<pthread_t*>(&m_thread.raw()), nullptr, entry_point, this) == 0);
 #endif
@@ -2924,6 +2945,65 @@ void thread_ctrl::detect_cpu_layout()
 	}
 }
 
+#if 0
+//FIXME
+
+void detect_big_little_topology(std::vector<int>& big_cores, std::vector<int>& little_cores, std::vector<int>& prime_cores)
+{
+    big_cores.clear();
+    little_cores.clear();
+    prime_cores.clear();
+
+    const std::string base_path = "/sys/devices/system/cpu/";
+
+    for (unsigned int i = 0; i < 8; ++i)
+    {
+        std::ifstream infile(base_path + "cpu" + std::to_string(i) + "/cpufreq/cpuinfo_max_freq");
+        if (infile)
+        {
+            int freq;
+            infile >> freq;
+
+            if(freq < 2400000)
+               little_cores.push_back(i);
+            if (freq > 2400000 && freq < 2800000)
+                big_cores.push_back(i);
+            if (freq > 2800000)
+                prime_cores.push_back(i);
+        }
+    }
+}
+
+u64 thread_ctrl::get_affinity_mask(thread_class group)
+{
+    std::vector<int> prime_cores, big_cores, little_cores;
+
+    detect_big_little_topology(big_cores, little_cores, prime_cores);
+
+    u64 prime_mask = 0, big_mask = 0, little_mask = 0;
+
+    for (int core : big_cores)
+        big_mask |= (1UL << core);
+    for (int core : little_cores)
+        little_mask |= (1UL << core);
+    for (int core : prime_cores)
+        prime_mask |= (1UL << core);
+
+    switch (group)
+    {
+        default:
+        case thread_class::general:
+            return big_mask | little_mask | prime_mask;
+        case thread_class::rsx:
+            return big_mask | little_mask | prime_mask;
+        case thread_class::ppu:
+            return big_mask | little_mask | prime_mask;
+        case thread_class::spu:
+            return big_mask | little_mask | prime_mask;
+    }
+}
+
+#else
 u64 thread_ctrl::get_affinity_mask(thread_class group)
 {
 	detect_cpu_layout();
@@ -3132,6 +3212,7 @@ u64 thread_ctrl::get_affinity_mask(thread_class group)
 
 	return -1;
 }
+#endif
 
 void thread_ctrl::set_native_priority(int priority)
 {
@@ -3148,6 +3229,18 @@ void thread_ctrl::set_native_priority(int priority)
 	{
 		sig_log.error("SetThreadPriority() failed: %s", fmt::win_error{GetLastError(), nullptr});
 	}
+#elif __ANDROID__
+
+#include <sys/resource.h>
+#include <unistd.h>
+#include <stdio.h>
+
+        pid_t tid = gettid(); // Obtém o identificador da thread atual.
+
+        if (setpriority(PRIO_PROCESS, tid, -20) != 0) {
+            perror("setpriority failed");
+        }
+
 #else
 	int policy;
 	struct sched_param param;
