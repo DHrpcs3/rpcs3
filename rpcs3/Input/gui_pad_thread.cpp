@@ -1,3 +1,4 @@
+#include "Input/virtual_pad_handler.h"
 #include "stdafx.h"
 #include "gui_pad_thread.h"
 #include "ds3_pad_handler.h"
@@ -233,6 +234,8 @@ std::shared_ptr<PadHandlerBase> gui_pad_thread::GetHandler(pad_handler type)
 	case pad_handler::evdev:
 		return std::make_shared<evdev_joystick_handler>();
 #endif
+	case pad_handler::virtual_pad:
+		return std::make_shared<virtual_pad_handler>();
 	}
 
 	return nullptr;

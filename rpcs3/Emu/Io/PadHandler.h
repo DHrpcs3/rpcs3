@@ -64,7 +64,7 @@ struct pad_ensemble
 	std::shared_ptr<PadDevice> buddy_device;
 
 	explicit pad_ensemble(std::shared_ptr<Pad> _pad, std::shared_ptr<PadDevice> _device, std::shared_ptr<PadDevice> _buddy_device)
-		: pad(_pad), device(_device), buddy_device(_buddy_device)
+		: pad(std::move(_pad)), device(std::move(_device)), buddy_device(std::move(_buddy_device))
 	{}
 };
 
@@ -307,7 +307,7 @@ public:
 	};
 
 	std::vector<pad_ensemble>& bindings() { return m_bindings; }
-	std::string name_string() const { return m_name_string; }
+	const std::string& name_string() const { return m_name_string; }
 	usz max_devices() const { return m_max_devices; }
 	bool has_config() const { return b_has_config; }
 	bool has_rumble() const { return b_has_rumble; }
