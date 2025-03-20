@@ -40,7 +40,13 @@ struct cfg_root : cfg::node
 		cfg::_int<0, 16> spu_delay_penalty{ this, "SPU delay penalty", 3 }; // Number of milliseconds to block a thread if a virtual 'core' isn't free
 		cfg::_bool spu_loop_detection{ this, "SPU loop detection", false }; // Try to detect wait loops and trigger thread yield
 		cfg::_int<1, 6> max_spurs_threads{ this, "Max SPURS Threads", 6, true }; // HACK. If less then 6, max number of running SPURS threads in each thread group.
-		cfg::_enum<spu_block_size_type> spu_block_size{ this, "SPU Block Size", spu_block_size_type::safe };
+		cfg::_enum<spu_block_size_type> spu_block_size{ this, "SPU Block Size", 
+#ifdef ANDROID
+			spu_block_size_type::mega
+#else
+			spu_block_size_type::safe
+#endif
+		};
 		cfg::_bool spu_accurate_dma{ this, "Accurate SPU DMA", false };
 		cfg::_bool spu_accurate_reservations{ this, "Accurate SPU Reservations", true };
 		cfg::_bool accurate_cache_line_stores{ this, "Accurate Cache Line Stores", false };
@@ -226,7 +232,13 @@ struct cfg_root : cfg::node
 			msaa_level::_auto
 #endif
 		};
-		cfg::_enum<shader_mode> shadermode{ this, "Shader Mode", shader_mode::async_with_interpreter };
+		cfg::_enum<shader_mode> shadermode{ this, "Shader Mode", 
+#ifdef ANDROID
+			shader_mode::async_recompiler
+#else
+			shader_mode::async_with_interpreter
+#endif
+		};
 		cfg::_enum<gpu_preset_level> shader_precision{ this, "Shader Precision", gpu_preset_level::high };
 		cfg::_enum<output_scaling_mode> output_scaling{ this, "Output Scaling Mode", output_scaling_mode::bilinear, true };
 		cfg::_enum<stereo_render_mode_options> stereo_render_mode{ this, "3D Display Mode", stereo_render_mode_options::disabled };
@@ -249,7 +261,14 @@ struct cfg_root : cfg::node
 		cfg::_bool disable_video_output{ this, "Disable Video Output", false, true };
 		cfg::_bool disable_vertex_cache{ this, "Disable Vertex Cache", false };
 		cfg::_bool disable_FIFO_reordering{ this, "Disable FIFO Reordering", false };
-		cfg::_bool frame_skip_enabled{ this, "Enable Frame Skip", false, true };
+		cfg::_bool frame_skip_enabled{ this, "Enable Frame Skip", 
+#ifdef ANDROID
+			true,
+#else
+			false,
+#endif
+			true
+		};
 		cfg::_bool force_cpu_blit_processing{ this, "Force CPU Blit", false, true }; // Debugging option
 		cfg::_bool disable_on_disk_shader_cache{ this, "Disable On-Disk Shader Cache", false };
 		cfg::_bool disable_vulkan_mem_allocator{ this, "Disable Vulkan Memory Allocator", false };
@@ -262,7 +281,13 @@ struct cfg_root : cfg::node
 		cfg::_bool precise_zpass_count{ this, "Accurate ZCULL stats", true };
 		cfg::_int<1, 8> consecutive_frames_to_draw{ this, "Consecutive Frames To Draw", 1, true};
 		cfg::_int<1, 8> consecutive_frames_to_skip{ this, "Consecutive Frames To Skip", 1, true};
-		cfg::_int<25, 800> resolution_scale_percent{ this, "Resolution Scale", 100 };
+		cfg::_int<25, 800> resolution_scale_percent{ this, "Resolution Scale", 
+#ifdef ANDROID
+			70
+#else
+			100
+#endif
+		};
 		cfg::uint<0, 16> anisotropic_level_override{ this, "Anisotropic Filter Override", 0, true };
 		cfg::_float<-32, 32> texture_lod_bias{ this, "Texture LOD Bias Addend", 0, true };
 		cfg::_int<1, 1024> min_scalable_dimension{ this, "Minimum Scalable Dimension", 16 };
